@@ -27,12 +27,14 @@
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <limits.h>
+#include <getopt.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>

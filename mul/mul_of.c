@@ -5019,7 +5019,7 @@ c_do_flow_lookup_with_cookie(c_switch_t *sw, struct flow *fl,
     return ent;
 }
 
-inline c_fl_entry_t *
+c_fl_entry_t *
 c_do_flow_lookup(c_switch_t *sw, struct flow *fl, bool match_residual)
 {
 

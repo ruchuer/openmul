@@ -21,6 +21,7 @@
 
 char c_path_name[C_MAX_PATH_NAME_LEN+1];
 
+#ifndef MUL_NOOPT_LONG
 /* of-controller options. */
 static struct option longopts[] = 
 {
@@ -40,6 +41,7 @@ static struct option longopts[] =
     { "highest-of-ver",         required_argument, NULL, 'O'},
     { "no-strict-validation",   no_argument,       NULL, 'N'},
 };
+#endif
 
 /* Process ID saved for use by init system */
 const char *pid_file = C_PID_PATH;
@@ -142,7 +144,11 @@ main(int argc, char **argv)
     while (1) {
         int opt;
 
+#ifndef MUL_NOOPT_LONG
         opt = getopt_long (argc, argv, "udhspnxbS:A:P:H:l:O:N", longopts, 0);
+#else
+        opt = getopt_long (argc, argv, "udhspnxbS:A:P:H:l:O:N");
+#endif
         if (opt == EOF)
             break;
 
