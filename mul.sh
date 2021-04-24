@@ -24,6 +24,7 @@ function init-command {
 function stop-command {
     sudo killall -9 mulcli > /dev/null 2>&1
     sudo killall -9 mull2sw > /dev/null 2>&1
+    sudo killall -9 mycontroller > /dev/null 2>&1
     sudo killall -9 mulfab > /dev/null 2>&1
     sudo killall -9 prismapp > /dev/null 2>&1
     sudo killall -9 prismagent > /dev/null 2>&1
@@ -32,6 +33,7 @@ function stop-command {
     sudo killall -9 mul > /dev/null 2>&1
     sudo killall -9 lt-mulcli > /dev/null 2>&1
     sudo killall -9 lt-mull2sw > /dev/null 2>&1
+    sudo killall -9 lt-mycontroller > /dev/null 2>&1
     sudo killall -9 lt-mulfab > /dev/null 2>&1
     sudo killall -9 lt-prismapp > /dev/null 2>&1
     sudo killall -9 lt-prismagent > /dev/null 2>&1
@@ -90,6 +92,22 @@ case "$1" in
     sudo PYTHONPATH=$PYTHONPATH ./mulnbapi start > /dev/null 2>&1
     popd >> /dev/null
     echo "OpenMUL l2switch mode is running.."
+    ;;
+"mycontroller")
+    pushd  $curr_dir/mul/ >> /dev/null
+    sudo ./mul -d
+    popd >> /dev/null
+    pushd  $curr_dir/application/my_controller/ >> /dev/null
+    sudo ./mulmy_controller -V 6000
+    popd >> /dev/null
+    pushd  $curr_dir/application/cli/ >> /dev/null
+    sudo ./mulcli -V 10000  -d
+    popd >> /dev/null
+    source pythonpath.sh
+    pushd  $curr_dir/application/nbapi/py-tornado/ >> /dev/null
+    sudo PYTHONPATH=$PYTHONPATH ./mulnbapi start > /dev/null 2>&1
+    popd >> /dev/null
+    echo "OpenMUL mycontroller mode is running.."
     ;;
 "fabric")
     pushd  $curr_dir/mul/ >> /dev/null
@@ -230,6 +248,7 @@ function usage {
     echo "Usage :"
     echo "$1 init"
     echo "$1 start standalone"
+    echo "$1 start mycontroller"
     echo "$1 start l2switch"
     echo "$1 start fabric"
     echo "$1 start prism"
