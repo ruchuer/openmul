@@ -5,7 +5,7 @@
 #include <stdlib.h>  /* malloc */
 #include "mul_common.h"
 
-//structure of arp store table
+//structure of arp store table a
 typedef struct arp_hash_table_
 {
     uint32_t id;//key ip address
