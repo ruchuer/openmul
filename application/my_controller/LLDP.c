@@ -102,6 +102,7 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
         }
         else
         {
+            //LLDP from other area
         }
         
         break;

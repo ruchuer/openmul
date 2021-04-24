@@ -19,16 +19,11 @@ int tp_rt_arp_stp(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t b
 
 /**
  * the function of ip route and issue flow_table
- * @sw: switch argument passed by infra layer (read-only)
- * @fl: Flow associated with the packet-in
- * @inport: in-port that this packet-in was received
- * @buffer_id: packet_in buffer_id
- * @raw: Raw packet data pointer
- * @pkt_len: Packet length
+ * @nw_src: ip source address
+ * @nw_dst: ip destination
  * @return: success 1, fail 0
  */
-int tp_rt_ip(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffer_id, \
-             uint8_t *raw, size_t pkt_len);
+int tp_rt_ip(uint32_t nw_src, uint32_t nw_dst);
 
 //use to store the pre_node
 typedef struct rt_node_t{
@@ -74,10 +69,8 @@ void rt_distory(rt_node * rt_set);
  * rt_visited_set store a path from src_ip to dst_ip, and than set flow in this path
  * @src_ip: source ip address
  * @dst_ip: destination ip address
- * @src_node: switch node that connect to the source
- * @dst_node: switch node that connect to the destination
  * @rt_visited_set: store the visited switch that also store the path
 */
-void tp_set_ip_flow_path(uint32_t src_ip, uint32_t dst_ip, tp_sw * src_node, tp_sw * dst_node, rt_node * rt_visited_set);
+void rt_set_ip_flow_path(uint32_t src_ip, uint32_t dst_ip, rt_node * rt_visited_set);
 
 #endif

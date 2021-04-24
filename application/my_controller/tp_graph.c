@@ -27,7 +27,7 @@ uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb)
     memset(s, 0, sizeof(tp_swdpid_glabolkey));
     s->key = sw_dpid;
     s->sw_gid = controller_area + (sw_count << 8);
-    HASH_ADD(hh,tp_graph,key,sizeof(uint64_t),s);
+    HASH_ADD(hh,tb,key,sizeof(uint64_t),s);
 
     return s->sw_gid;
 }
@@ -55,7 +55,6 @@ int tp_del_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb)
 
 uint32_t tp_get_local_ip(void)
 {
-    char *temp = NULL;
     int inet_sock;
     struct ifreq ifr;
 
@@ -159,9 +158,9 @@ void __tp_sw_del_all_port(tp_sw *head)
 tp_sw * tp_add_sw_port(mul_switch_t *sw, tp_sw * tp_graph)
 {
     tp_sw * s = tp_find_sw(tp_get_sw_glabol_id(sw->dpid, key_table), tp_graph);
-    s->sw_dpid = sw->dpid;
     GSList * iter;
-
+    s->sw_dpid = sw->dpid;
+    
     if(!s)return NULL;
     iter = sw->port_list;
     while(iter != NULL)

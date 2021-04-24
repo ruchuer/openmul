@@ -53,15 +53,17 @@ void rt_distory(rt_node * rt_set)
     rt_set = NULL;
 }
 
-void tp_set_ip_flow_path(uint32_t src_ip, uint32_t dst_ip, tp_sw * src_node, tp_sw * dst_node, rt_node * rt_visited_set)
+void rt_set_ip_flow_path(uint32_t src_ip, uint32_t dst_ip, rt_node * rt_visited_set)
 {
-    rt_node *s = rt_find_node(dst_node->key, rt_visited_set);
+    rt_node *s ;
+    tp_sw * dst_node = tp_find_sw(arp_find_key(dst_ip)->sw_key, tp_graph);
     //uint32_t src_port = arp_find_key(src_ip)->port_no;
     uint32_t outport = arp_find_key(dst_ip)->port_no;
-
     struct flow fl;
     struct flow mask;
     mul_act_mdata_t mdata;
+
+    s = rt_find_node(dst_node->key, rt_visited_set);
 
     do{
         //流表下发
@@ -89,11 +91,10 @@ void tp_set_ip_flow_path(uint32_t src_ip, uint32_t dst_ip, tp_sw * src_node, tp_
     mul_app_act_free(&mdata);
 }
 
-int tp_rt_ip(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffer_id, \
-             uint8_t *raw, size_t pkt_len)
+int tp_rt_ip(uint32_t nw_src, uint32_t nw_dst)
 {
-    tp_sw * src_node = tp_find_sw(arp_find_key(fl->ip.nw_src)->sw_key, tp_graph);
-    tp_sw * dst_node = tp_find_sw(arp_find_key(fl->ip.nw_dst)->sw_key, tp_graph);
+    tp_sw * src_node = tp_find_sw(arp_find_key(nw_src)->sw_key, tp_graph);
+    tp_sw * dst_node = tp_find_sw(arp_find_key(nw_dst)->sw_key, tp_graph);
     tp_sw * start_node = src_node;
     tp_link * adj_node;
     heap rt_minheap;
@@ -110,17 +111,17 @@ int tp_rt_ip(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffer
 
     while(heap_size(&rt_minheap))
     {
-        heap_mindel(&rt_minheap, (void*)&sw_visiting_key, (void*)&delay_get);
+        heap_delmin(&rt_minheap, (void*)&sw_visiting_key, (void*)&delay_get);
         start_node = tp_find_sw(*sw_visiting_key, tp_graph);
         adj_node = start_node->list_link;//找到一个点开始遍历
-        if(adj_node = NULL) continue;
+        if(adj_node == NULL) continue;
         while(adj_node)//遍历邻接点
         {
             if(adj_node->key == dst_node->key)
             {
                 //找到了，下发流表
                 rt_add_node(adj_node->key, start_node, adj_node, rt_visited_set);
-                tp_set_ip_flow_path(fl->ip.nw_src, fl->ip.nw_dst, src_node, dst_node, rt_visited_set);
+                rt_set_ip_flow_path(nw_src, nw_dst, rt_visited_set);
                 rt_distory(rt_visited_set);
                 heap_destroy(&rt_minheap);
                 return 1;
