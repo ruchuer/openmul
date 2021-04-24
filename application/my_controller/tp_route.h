@@ -34,7 +34,7 @@ int tp_rt_ip(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffer
 typedef struct rt_node_t{
     tp_link * node; //read only
     tp_sw * prev; //read only
-    uint64_t key; //node id
+    uint32_t key; //node id
     UT_hash_handle hh;         /* makes this structure hashable */
 }rt_node;
 
@@ -69,5 +69,15 @@ int rt_del_node(uint64_t key, rt_node * rt_set);
  * @rt_set: the dst set
  */
 void rt_distory(rt_node * rt_set);
+
+/**
+ * rt_visited_set store a path from src_ip to dst_ip, and than set flow in this path
+ * @src_ip: source ip address
+ * @dst_ip: destination ip address
+ * @src_node: switch node that connect to the source
+ * @dst_node: switch node that connect to the destination
+ * @rt_visited_set: store the visited switch that also store the path
+*/
+void tp_set_ip_flow_path(uint32_t src_ip, uint32_t dst_ip, tp_sw * src_node, tp_sw * dst_node, rt_node * rt_visited_set);
 
 #endif

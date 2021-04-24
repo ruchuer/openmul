@@ -78,23 +78,7 @@ my_controller_install_dfl_flows(uint64_t dpid)
     of_mask_set_dc_all(&mask);
     mul_app_send_flow_add(MY_CONTROLLER_APP_NAME, NULL, dpid, &fl, &mask,
                           MY_CONTROLLER_UNK_BUFFER_ID, NULL, 0, 0, 0,
-                          C_FL_PRIO_DRP, C_FL_ENT_LOCAL);
-
-    /* Add Flow to receive LLDP Packet type */
-    memset(&fl, 0, sizeof(fl));
-    
-    fl.dl_type = htons(0x88cc);
-    of_mask_set_dl_type(&mask);
-
-    mul_app_act_alloc(&mdata);
-    mul_app_act_set_ctors(&mdata, dpid);
-    mul_app_action_output(&mdata, 0); /* Send to controller */
-
-    mul_app_send_flow_add(MUL_TR_SERVICE_NAME, NULL, dpid, &fl, &mask,
-                          (uint32_t)-1,
-                          mdata.act_base, mul_app_act_len(&mdata),
-                          0, 0, C_FL_PRIO_EXM, C_FL_ENT_LOCAL);
-    mul_app_act_free(&mdata);
+                          C_FL_PRIO_LDFL, C_FL_ENT_LOCAL);
 }
 
 
@@ -190,18 +174,19 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
     case ETH_TYPE_IP:
         //IP 0x0800
         c_log_info("IP packet-in from network");
-        mul_app_act_alloc(&mdata);
-        mdata.only_acts = true;
-        mul_app_act_set_ctors(&mdata, sw->dpid);
-        mul_app_action_output(&mdata, OF_ALL_PORTS);
-        parms.buffer_id = buffer_id;
-        parms.in_port = inport;
-        parms.action_list = mdata.act_base;
-        parms.action_len = mul_app_act_len(&mdata);
-        parms.data_len = pkt_len;
-        parms.data = raw;
-        mul_app_send_pkt_out(NULL, sw->dpid, &parms);
-        mul_app_act_free(&mdata);
+        // mul_app_act_alloc(&mdata);
+        // mdata.only_acts = true;
+        // mul_app_act_set_ctors(&mdata, sw->dpid);
+        // mul_app_action_output(&mdata, OF_ALL_PORTS);
+        // parms.buffer_id = buffer_id;
+        // parms.in_port = inport;
+        // parms.action_list = mdata.act_base;
+        // parms.action_len = mul_app_act_len(&mdata);
+        // parms.data_len = pkt_len;
+        // parms.data = raw;
+        // mul_app_send_pkt_out(NULL, sw->dpid, &parms);
+        // mul_app_act_free(&mdata);
+        tp_rt_ip(sw, fl, inport, buffer_id, raw, pkt_len);
         break;
     case ETH_TYPE_ARP:
         //ARP 0x0806

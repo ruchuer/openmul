@@ -53,14 +53,40 @@ void rt_distory(rt_node * rt_set)
     rt_set = NULL;
 }
 
-void tp_set_ip_flow_path(uint64_t src_key, uint64_t dst_key, rt_node * rt_visited_set)
+void tp_set_ip_flow_path(uint32_t src_ip, uint32_t dst_ip, tp_sw * src_node, tp_sw * dst_node, rt_node * rt_visited_set)
 {
-    rt_node *s = NULL;
-    while(dst_key != src_key)
-    {
-        s = rt_find_node(dst_key, rt_visited_set);
+    rt_node *s = rt_find_node(dst_node->key, rt_visited_set);
+    //uint32_t src_port = arp_find_key(src_ip)->port_no;
+    uint32_t outport = arp_find_key(dst_ip)->port_no;
+
+    struct flow fl;
+    struct flow mask;
+    mul_act_mdata_t mdata;
+
+    do{
         //流表下发
-    }
+        memset(&fl, 0, sizeof(fl));
+        memset(&mdata, 0, sizeof(mdata));
+        of_mask_set_dc_all(&mask);
+    
+        fl.ip.nw_src = src_ip;
+        of_mask_set_nw_src(&mask, 32);
+        fl.ip.nw_dst = dst_ip;
+        of_mask_set_nw_dst(&mask, 32);
+
+        mul_app_act_alloc(&mdata);
+        mul_app_act_set_ctors(&mdata, dst_node->sw_dpid);
+        mul_app_action_output(&mdata, outport); 
+
+        mul_app_send_flow_add(MUL_TR_SERVICE_NAME, NULL, dst_node->sw_dpid, &fl, &mask,
+                            (uint32_t)-1,
+                            mdata.act_base, mul_app_act_len(&mdata),
+                            0, 0, C_FL_PRIO_FWD, C_FL_ENT_LOCAL);
+        outport = (s->node != NULL)?s->node->port_h:0;
+        dst_node = s->prev;
+        s = rt_find_node(dst_node->key, rt_visited_set);
+    }while(outport);
+    mul_app_act_free(&mdata);
 }
 
 int tp_rt_ip(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffer_id, \
@@ -79,7 +105,7 @@ int tp_rt_ip(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffer
     if(!src_node && !dst_node) return 0;
 
     heap_create(&rt_minheap, 0, NULL);
-    rt_add_node(src_node->key, NULL, src_node, rt_visited_set);
+    rt_add_node(src_node->key, src_node, NULL, rt_visited_set);
     heap_insert(&rt_minheap, (void*)&(src_node->key), (void*)&delay_set);
 
     while(heap_size(&rt_minheap))
@@ -93,8 +119,8 @@ int tp_rt_ip(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffer
             if(adj_node->key == dst_node->key)
             {
                 //找到了，下发流表
-                rt_add_node(dst_node->key, start_node, dst_node, rt_visited_set);
-                tp_set_ip_flow_path(src_node->key, dst_node->key, rt_visited_set);
+                rt_add_node(adj_node->key, start_node, adj_node, rt_visited_set);
+                tp_set_ip_flow_path(fl->ip.nw_src, fl->ip.nw_dst, src_node, dst_node, rt_visited_set);
                 rt_distory(rt_visited_set);
                 heap_destroy(&rt_minheap);
                 return 1;
