@@ -12,6 +12,7 @@ uint32_t controller_area = 0;
 void tp_get_area_from_db(uint32_t ip_addr)
 {
     //some command send to Redis 
+    controller_area = 0x01010000;
 }
 
 uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb)

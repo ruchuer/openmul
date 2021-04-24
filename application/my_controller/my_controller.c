@@ -236,6 +236,8 @@ my_controller_core_reconn(void)
                         0,                    /* If any specific dpid filtering is requested */
                         NULL,                 /* List of specific dpids for filtering events */
                         &my_controller_app_cbs);      /* Event notifier call-backs */
+                        
+    tp_get_area_from_db(tp_get_local_ip());
 }
 
 
