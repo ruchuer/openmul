@@ -31,6 +31,7 @@ struct mul_app_client_cb my_controller_app_cbs;
 extern arp_hash_table_t * arp_table;//arp hash table handler
 extern tp_sw * tp_graph;//topo hash handler
 extern tp_swdpid_glabolkey * key_table;
+extern uint32_t controller_area;
 
 /**
  * my_controller_install_dfl_flows -
@@ -45,7 +46,7 @@ my_controller_install_dfl_flows(uint64_t dpid)
     struct flow fl;
     struct flow mask;
     //struct mul_act_mdata mdata; 
-    mul_act_mdata_t mdata;
+    //mul_act_mdata_t mdata;
 
     memset(&fl, 0, sizeof(fl));
     of_mask_set_dc_all(&mask);
@@ -78,23 +79,7 @@ my_controller_install_dfl_flows(uint64_t dpid)
     of_mask_set_dc_all(&mask);
     mul_app_send_flow_add(MY_CONTROLLER_APP_NAME, NULL, dpid, &fl, &mask,
                           MY_CONTROLLER_UNK_BUFFER_ID, NULL, 0, 0, 0,
-                          C_FL_PRIO_DRP, C_FL_ENT_LOCAL);
-
-    /* Add Flow to receive LLDP Packet type */
-    memset(&fl, 0, sizeof(fl));
-    
-    fl.dl_type = htons(0x88cc);
-    of_mask_set_dl_type(&mask);
-
-    mul_app_act_alloc(&mdata);
-    mul_app_act_set_ctors(&mdata, dpid);
-    mul_app_action_output(&mdata, 0); /* Send to controller */
-
-    mul_app_send_flow_add(MUL_TR_SERVICE_NAME, NULL, dpid, &fl, &mask,
-                          (uint32_t)-1,
-                          mdata.act_base, mul_app_act_len(&mdata),
-                          0, 0, C_FL_PRIO_EXM, C_FL_ENT_LOCAL);
-    mul_app_act_free(&mdata);
+                          C_FL_PRIO_LDFL, C_FL_ENT_LOCAL);
 }
 
 
@@ -109,18 +94,22 @@ static void
 my_controller_sw_add(mul_switch_t *sw)
 {
     uint32_t sw_glabol_key;
+    c_log_debug("switch dpid 0x%ldx joined network", (uint64_t)(sw->dpid));
+
     /* Add few default flows in this switch */
     my_controller_install_dfl_flows(sw->dpid);
 
     sw_glabol_key = tp_set_sw_glabol_id(sw->dpid, key_table);
+    c_log_debug("sw_glabol_key: %dx", sw_glabol_key);
     //topo Add a sw node to the topo
     tp_add_sw(sw_glabol_key, tp_graph);
+    c_log_debug("sw %dx add to tp_graph", sw_glabol_key);
     //topo add the port information
     tp_add_sw_port(sw, tp_graph);
-
+    c_log_debug("sw %dx store port", sw_glabol_key);
     //写入数据库，新加了一个交换机，且由该控制器控制
-
-    c_log_debug("switch dpid 0x%ldx joined network", (uint64_t)(sw->dpid));
+    lldp_measure_delay_ctos(sw->dpid);
+    c_log_debug("measure controller to sw %dx delay", sw_glabol_key);
 }
 
 /**
@@ -134,6 +123,7 @@ static void
 my_controller_sw_del(mul_switch_t *sw)
 {
     tp_delete_sw(tp_get_sw_glabol_id(sw->dpid, key_table), tp_graph);
+    tp_del_sw_glabol_id(sw->dpid, key_table);
     c_log_debug("switch dpid 0x%ldx left network", (uint64_t)(sw->dpid));
 }
 
@@ -159,7 +149,7 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
 {
     //uint32_t                    oport = OF_ALL_PORTS;
     struct of_pkt_out_params    parms;
-    struct mul_act_mdata mdata;
+    //struct mul_act_mdata mdata;
     uint16_t type;
 
     memset(&parms, 0, sizeof(parms));
@@ -189,18 +179,19 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
     case ETH_TYPE_IP:
         //IP 0x0800
         c_log_info("IP packet-in from network");
-        mul_app_act_alloc(&mdata);
-        mdata.only_acts = true;
-        mul_app_act_set_ctors(&mdata, sw->dpid);
-        mul_app_action_output(&mdata, OF_ALL_PORTS);
-        parms.buffer_id = buffer_id;
-        parms.in_port = inport;
-        parms.action_list = mdata.act_base;
-        parms.action_len = mul_app_act_len(&mdata);
-        parms.data_len = pkt_len;
-        parms.data = raw;
-        mul_app_send_pkt_out(NULL, sw->dpid, &parms);
-        mul_app_act_free(&mdata);
+        // mul_app_act_alloc(&mdata);
+        // mdata.only_acts = true;
+        // mul_app_act_set_ctors(&mdata, sw->dpid);
+        // mul_app_action_output(&mdata, OF_ALL_PORTS);
+        // parms.buffer_id = buffer_id;
+        // parms.in_port = inport;
+        // parms.action_list = mdata.act_base;
+        // parms.action_len = mul_app_act_len(&mdata);
+        // parms.data_len = pkt_len;
+        // parms.data = raw;
+        // mul_app_send_pkt_out(NULL, sw->dpid, &parms);
+        // mul_app_act_free(&mdata);
+        tp_rt_ip(fl->ip.nw_src, fl->ip.nw_dst);
         break;
     case ETH_TYPE_ARP:
         //ARP 0x0806
@@ -250,6 +241,9 @@ my_controller_core_reconn(void)
                         0,                    /* If any specific dpid filtering is requested */
                         NULL,                 /* List of specific dpids for filtering events */
                         &my_controller_app_cbs);      /* Event notifier call-backs */
+
+    tp_get_area_from_db(tp_get_local_ip());
+    c_log_debug("controller area: %dx", controller_area);
 }
 
 

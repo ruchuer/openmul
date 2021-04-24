@@ -3,6 +3,7 @@
 #include <sys/time.h>
 
 extern tp_sw * tp_graph;
+extern tp_swdpid_glabolkey * key_table;
 
 uint64_t lldp_get_timeval(void)
 {
@@ -72,10 +73,10 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
 {
     uint64_t now_timeval, delay;
     uint64_t sw_dpid1 = sw->dpid;
-    tp_sw * sw1 = tp_find_sw(sw_dpid1, tp_graph);
+    tp_sw * sw1 = tp_find_sw(tp_get_sw_glabol_id(sw_dpid1, key_table), tp_graph);
     lldp_pkt_t * lldp = (lldp_pkt_t*)raw;
     uint64_t sw_dpid2 = ntohll(lldp->chassis_tlv_id);
-    tp_sw * sw2 = tp_find_sw(sw_dpid2, tp_graph);
+    tp_sw * sw2 = tp_find_sw(tp_get_sw_glabol_id(sw_dpid2, key_table), tp_graph);
     uint8_t ret = 0;
 
     gettimeofday(&now_timeval, NULL);
@@ -91,16 +92,17 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
         if(sw2)
         {//in the same area
             //add edge between the sw_node. return 0 if added them before
-            tp_add_link(sw_dpid1, inport, sw_dpid2, lldp->port_tlv_id, tp_graph);
+            tp_add_link(sw1->key, inport, sw2->key, lldp->port_tlv_id, tp_graph);
             delay = now_timeval-ntohll(lldp->user_tlv_data_timeval);
-            delay -= (tp_find_sw(sw_dpid1, tp_graph)->delay + tp_find_sw(sw_dpid2, tp_graph)->delay);
+            delay -= (tp_find_sw(sw1->key, tp_graph)->delay + tp_find_sw(sw2->key, tp_graph)->delay);
             //connect to the database if the link between area and area
             do{
-                TP_SET_LINK(sw_dpid1, sw_dpid2, delay, tp_graph, ret);
+                TP_SET_LINK(sw1->key, sw2->key, delay, tp_graph, ret);
             }while(ret == 0);
         }
         else
         {
+            //LLDP from other area
         }
         
         break;
@@ -134,7 +136,7 @@ void lldp_flood(mul_switch_t *sw)
 {
     //uint64_t sw_srcdpid = sw->dpid;
     lldp_pkt_t buffer;
-    tp_sw_port * port_list = tp_find_sw(sw->dpid, tp_graph)->list_port;
+    tp_sw_port * port_list = tp_find_sw(tp_get_sw_glabol_id(sw->dpid, key_table), tp_graph)->list_port;
     
     //create the lldp packet due to get the adj
     //lldp_create_packet(port_infor.hw_addr, sw_srcdpid, port_infor.port_no, &buffer);
