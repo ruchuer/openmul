@@ -6,11 +6,50 @@
 #include <sys/ioctl.h>
 
 tp_sw * tp_graph = NULL;
+tp_swdpid_glabolkey * key_table = NULL;
 uint32_t controller_area = 0;
 
 void tp_get_area_from_db(uint32_t ip_addr)
 {
     //some command send to Redis 
+}
+
+uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb)
+{
+    static uint8_t sw_count = 0;
+    tp_swdpid_glabolkey *s = NULL;
+    sw_count++;
+
+    if(tp_get_sw_glabol_id(sw_dpid, tb) == 0)return 0;
+
+    s = malloc(sizeof(tp_swdpid_glabolkey));
+    memset(s, 0, sizeof(tp_swdpid_glabolkey));
+    s->key = sw_dpid;
+    s->sw_gid = controller_area + (sw_count << 8);
+    HASH_ADD(hh,tp_graph,key,sizeof(uint64_t),s);
+
+    return s->sw_gid;
+}
+
+uint32_t tp_get_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb)
+{
+    tp_swdpid_glabolkey *s = NULL;
+    HASH_FIND(hh, tb, &sw_dpid, sizeof(uint64_t), s);
+    if(s)return s->sw_gid;
+    return 0;
+}
+
+int tp_del_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb)
+{
+    tp_swdpid_glabolkey *s = NULL;
+
+    HASH_FIND(hh, tb, &sw_dpid, sizeof(uint64_t), s);
+    if(!s)return 0;
+
+    HASH_DEL(tb, s);
+    free(s);
+
+    return 1;
 }
 
 uint32_t tp_get_local_ip(void)
@@ -118,7 +157,7 @@ void __tp_sw_del_all_port(tp_sw *head)
 
 tp_sw * tp_add_sw_port(mul_switch_t *sw, tp_sw * tp_graph)
 {
-    tp_sw * s = tp_find_sw(sw->dpid, tp_graph);
+    tp_sw * s = tp_find_sw(tp_get_sw_glabol_id(sw->dpid, key_table), tp_graph);
     GSList * iter;
 
     if(!s)return NULL;
@@ -213,6 +252,7 @@ int tp_delete_sw(uint64_t key, tp_sw * tp_graph)
     s = tp_find_sw(key, tp_graph);
     if(!s)return 0;
 
+    tp_del_sw_glabol_id(s->sw_dpid, key_table);
     while(s->list_link != NULL)
     {
         tp_delete_link(key, s->list_link->key, tp_graph);
@@ -237,6 +277,7 @@ void tp_distory(tp_sw * tp_graph)
             free(next_tmp1);
             next_tmp1 = next_tmp2;
         }
+        tp_del_sw_glabol_id(s->sw_dpid, key_table);
         HASH_DEL(tp_graph, s);
         free(s);
     }

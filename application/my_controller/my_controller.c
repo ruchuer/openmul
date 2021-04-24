@@ -30,6 +30,7 @@ struct mul_app_client_cb my_controller_app_cbs;
 
 extern arp_hash_table_t * arp_table;//arp hash table handler
 extern tp_sw * tp_graph;//topo hash handler
+extern tp_swdpid_glabolkey * key_table;
 
 /**
  * my_controller_install_dfl_flows -
@@ -107,11 +108,13 @@ my_controller_install_dfl_flows(uint64_t dpid)
 static void 
 my_controller_sw_add(mul_switch_t *sw)
 {
+    uint32_t sw_glabol_key;
     /* Add few default flows in this switch */
     my_controller_install_dfl_flows(sw->dpid);
 
+    sw_glabol_key = tp_set_sw_glabol_id(sw->dpid, key_table);
     //topo Add a sw node to the topo
-    tp_add_sw(sw->dpid, tp_graph);
+    tp_add_sw(sw_glabol_key, tp_graph);
     //topo add the port information
     tp_add_sw_port(sw, tp_graph);
 
@@ -130,7 +133,7 @@ my_controller_sw_add(mul_switch_t *sw)
 static void
 my_controller_sw_del(mul_switch_t *sw)
 {
-    tp_delete_sw(sw->dpid, tp_graph);
+    tp_delete_sw(tp_get_sw_glabol_id(sw->dpid, key_table), tp_graph);
     c_log_debug("switch dpid 0x%ldx left network", (uint64_t)(sw->dpid));
 }
 

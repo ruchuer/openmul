@@ -10,6 +10,8 @@ typedef struct arp_hash_table_
 {
     uint32_t id;//key ip address
     uint8_t dl_hw_addr[ETH_ADDR_LEN];//data links address
+    uint32_t sw_key;//connect to the switch
+    uint32_t port_no;//the switch port number
     UT_hash_handle hh;         /* makes this structure hashable */
 }arp_hash_table_t;
 
@@ -61,6 +63,8 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
 /**
  * store the mac address from the arp_request
  * @arp_req: the arp request of ethernet header
+ * @sw_dpid: connect the switch dpid
+ * @port: the switch connect port
  */
-void arp_learn(struct arp_eth_header *arp_req);
+void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port);
 #endif

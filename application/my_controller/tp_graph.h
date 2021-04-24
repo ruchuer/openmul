@@ -45,11 +45,44 @@ typedef struct tp_sw_port_t
 typedef struct tp_sw_t
 {
     uint32_t key;//the node key(switch or host)
+    uint64_t sw_dpid;//switch dpid
     tp_link * list_link;//the switch link head
     tp_sw_port * list_port;//the switch port head
     uint64_t delay;//the delay between controller and switch
     UT_hash_handle hh;//hash handler
 }tp_sw;//switch hash table node
+
+//sw_dpid hash to glabol switch id(when add a switch, you need to change sw_dpid to the glabol key)
+typedef struct tp_swdpid_glabolkey_t
+{
+    uint64_t key;//switch dpid
+    uint32_t sw_gid;//switch glabol id
+    UT_hash_handle hh;//hash handler
+}tp_swdpid_glabolkey;
+
+/**
+ * add a sw_dpid to the glabol key table
+ * @sw_dpid: switch dpid
+ * @tb: glabol switch key table
+ * @return: the corresponding glabolkey or 0
+*/
+uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb);
+
+/**
+ * use the key to find switch node from tb
+ * @sw_dpid: switch dpid
+ * @tb: glabol switch key table
+ * @return: the corresponding glabolkey or 0
+ */
+uint32_t tp_get_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb);
+
+/**
+ * delete the key node from glabol key table
+ * @sw_dpid: switch dpid
+ * @tb: glabol switch key table
+ * @return: success 1, fail 0
+ */
+int tp_del_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb);
 
 /**
  * return local ip address
@@ -66,7 +99,7 @@ void tp_get_area_from_db(uint32_t ip_addr);
  * use the key to find switch node from tp_graph
  * @key: the node key(sw_dpid or host ip)
  * @tp_graph: topo_graph handler
- * @return: the corresponding tp_sw
+ * @return: the corresponding tp_sw or NULL
  */
 tp_sw * tp_find_sw(uint64_t key, tp_sw * tp_graph);
 

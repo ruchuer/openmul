@@ -1,5 +1,7 @@
 #include "ARP.h"
+#include "tp_graph.h"
 
+extern tp_swdpid_glabolkey * key_table;
 arp_hash_table_t * arp_table = NULL;
 
 void arp_add_key(uint32_t key_ip, uint8_t dl_hw_addr[ETH_ADDR_LEN]) 
@@ -40,9 +42,13 @@ void arp_distory(void)
     arp_table = NULL;
 }
 
-void arp_learn(struct arp_eth_header *arp_req)
+void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port)
 {
+    arp_hash_table_t * tmp;
     arp_add_key(arp_req->ar_spa, arp_req->ar_sha);
+    tmp = arp_find_key(arp_req->ar_sha);
+    tmp->sw_key = tp_get_sw_glabol_id(sw_dpid, key_table);
+    tmp->port_no = port;
 }
 
 
@@ -63,7 +69,7 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
     {
         arp_delete_key(arp->ar_spa);
     }
-    arp_learn(arp);
+    arp_learn(arp, sw->dpid, inport);
 
     memset(&parms, 0, sizeof(parms));
     mul_app_act_alloc(&mdata);
