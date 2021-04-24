@@ -158,6 +158,7 @@ void __tp_sw_del_all_port(tp_sw *head)
 tp_sw * tp_add_sw_port(mul_switch_t *sw, tp_sw * tp_graph)
 {
     tp_sw * s = tp_find_sw(tp_get_sw_glabol_id(sw->dpid, key_table), tp_graph);
+    s->sw_dpid = sw->dpid;
     GSList * iter;
 
     if(!s)return NULL;

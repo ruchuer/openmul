@@ -134,6 +134,7 @@ static void
 my_controller_sw_del(mul_switch_t *sw)
 {
     tp_delete_sw(tp_get_sw_glabol_id(sw->dpid, key_table), tp_graph);
+    tp_del_sw_glabol_id(sw->dpid, key_table);
     c_log_debug("switch dpid 0x%ldx left network", (uint64_t)(sw->dpid));
 }
 

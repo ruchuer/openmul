@@ -1,7 +1,9 @@
 #include "tp_route.h"
 #include "heap.h"
+#include "ARP.h"
 
 extern tp_sw * tp_graph;
+extern tp_swdpid_glabolkey * key_table;
 
 rt_node * rt_find_node(uint64_t key, rt_node * rt_set)
 {
@@ -64,26 +66,26 @@ void tp_set_ip_flow_path(uint64_t src_key, uint64_t dst_key, rt_node * rt_visite
 int tp_rt_ip(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffer_id, \
              uint8_t *raw, size_t pkt_len)
 {
-    tp_sw * src_node = tp_find_sw(fl->ip.nw_src, tp_graph);
-    tp_sw * dst_node = tp_find_sw(fl->ip.nw_dst, tp_graph);
+    tp_sw * src_node = tp_find_sw(arp_find_key(fl->ip.nw_src)->sw_key, tp_graph);
+    tp_sw * dst_node = tp_find_sw(arp_find_key(fl->ip.nw_dst)->sw_key, tp_graph);
     tp_sw * start_node = src_node;
     tp_link * adj_node;
     heap rt_minheap;
     rt_node * rt_visited_set;
     uint64_t * delay_get;
-    uint64_t * sw_visiting_dpid;
+    uint64_t * sw_visiting_key;
     uint64_t delay_set = 0;
 
     if(!src_node && !dst_node) return 0;
 
     heap_create(&rt_minheap, 0, NULL);
     rt_add_node(src_node->key, NULL, src_node, rt_visited_set);
-    heap_insert(&rt_minheap, (void*)&sw->dpid, (void*)&src_node->delay);
+    heap_insert(&rt_minheap, (void*)&(src_node->key), (void*)&delay_set);
 
     while(heap_size(&rt_minheap))
     {
-        heap_min(&rt_minheap, (void*)&sw_visiting_dpid, (void*)&delay_get);
-        start_node = tp_find_sw(*sw_visiting_dpid, tp_graph);
+        heap_mindel(&rt_minheap, (void*)&sw_visiting_key, (void*)&delay_get);
+        start_node = tp_find_sw(*sw_visiting_key, tp_graph);
         adj_node = start_node->list_link;//找到一个点开始遍历
         if(adj_node = NULL) continue;
         while(adj_node)//遍历邻接点
