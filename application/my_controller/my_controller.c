@@ -104,9 +104,6 @@ my_controller_sw_add(mul_switch_t *sw)
     //topo Add a sw node to the topo
     tp_add_sw(sw_glabol_key);
     c_log_debug("sw %x add to tp_graph", sw_glabol_key);
-    //topo add the port information
-    tp_add_sw_port(sw);
-    c_log_debug("sw %x store port", sw_glabol_key);
     //写入数据库，新加了一个交换机，且由该控制器控制
     lldp_measure_delay_ctos(sw->dpid);
     c_log_debug("measure controller to sw %dx delay", sw_glabol_key);
@@ -243,6 +240,27 @@ my_controller_core_reconn(void)
                         &my_controller_app_cbs);      /* Event notifier call-backs */
 }
 
+/**
+ * lldp_port_add_cb -
+ *
+ * Application port add callback 
+ */
+static void
+lldp_port_add_cb(mul_switch_t *sw,  mul_port_t *port)
+{
+    __tp_sw_add_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no, port->hw_addr);
+}
+
+/**
+ * lldp_port_del_cb -
+ *
+ * Application port del callback 
+ */
+static void
+lldp_port_del_cb(mul_switch_t *sw,  mul_port_t *port)
+{
+    __tp_sw_del_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no);
+}
 
 /* Network event callbacks */
 struct mul_app_client_cb my_controller_app_cbs = {
@@ -252,8 +270,8 @@ struct mul_app_client_cb my_controller_app_cbs = {
     .switch_del_cb = my_controller_sw_del,          /* Switch delete notifier */
     .switch_priv_port_alloc = NULL,
     .switch_priv_port_free = NULL,
-    .switch_port_add_cb = NULL,
-    .switch_port_del_cb = NULL,
+    .switch_port_add_cb = lldp_port_add_cb,
+    .switch_port_del_cb = lldp_port_del_cb,
     .switch_port_link_chg = NULL,
     .switch_port_adm_chg = NULL,
     .switch_packet_in = my_controller_packet_in,    /* Packet-in notifier */ 

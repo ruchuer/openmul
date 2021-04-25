@@ -1,9 +1,6 @@
 #include "tp_graph.h"
 #include <glib.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
 
 tp_sw * tp_graph = NULL;
 tp_swdpid_glabolkey * key_table = NULL;
@@ -57,21 +54,7 @@ int tp_del_sw_glabol_id(uint64_t sw_dpid)
 
 uint32_t tp_get_local_ip(void)
 {
-    int inet_sock;
-    struct ifreq ifr;
-
-    inet_sock = socket(AF_INET, SOCK_DGRAM, 0); 
-
-    memset(ifr.ifr_name, 0, sizeof(ifr.ifr_name));
-    memcpy(ifr.ifr_name, IF_NAME, strlen(IF_NAME));
-
-    if(0 != ioctl(inet_sock, SIOCGIFADDR, &ifr)) 
-    {   
-        perror("ioctl error");
-        return -1;
-    }
-
-    return ntohl(((struct sockaddr_in*)&(ifr.ifr_addr))->sin_addr.s_addr);
+    return inet_addr(IF_NAME);
 }
 
 int tp_set_sw_delay(uint32_t key, uint64_t delay)
@@ -111,13 +94,13 @@ tp_sw * tp_add_sw(uint32_t key)
     return s;
 }
 
-void __tp_sw_add_port(tp_sw *head, GSList * iter)
+void __tp_sw_add_port(tp_sw *head, uint32_t port_no, uint8_t dl_hw_addr[ETH_ADDR_LEN])
 {
     tp_sw_port * s = head->list_port;
     tp_sw_port * tmp = malloc(sizeof(tp_sw_port));
     memset(tmp, 0, sizeof(tp_sw_port));
-    tmp->port_no = ((mul_port_t*)(iter->data))->port_no;
-    strncpy((char*)tmp->dl_hw_addr, (const char*)((mul_port_t*)(iter->data))->hw_addr, ETH_ADDR_LEN);
+    tmp->port_no = port_no;
+    strncpy((char*)tmp->dl_hw_addr, (const char*)dl_hw_addr, ETH_ADDR_LEN);
     tmp->next = s;
     if(s)s->pprev = &tmp->next;
     head->list_port = tmp;
@@ -155,24 +138,6 @@ void __tp_sw_del_all_port(tp_sw *head)
         s = tmp;
     }
     head->list_port = NULL;
-}
-
-
-tp_sw * tp_add_sw_port(mul_switch_t *sw)
-{
-    tp_sw * s = tp_find_sw(tp_get_sw_glabol_id(sw->dpid));
-    GSList * iter;
-    s->sw_dpid = sw->dpid;
-    
-    if(!s)return NULL;
-    iter = sw->port_list;
-    while(iter != NULL)
-    {
-        c_log_debug("sw %x add a port", s->key);
-        __tp_sw_add_port(s, iter);
-        iter = iter->next;
-    }
-    return s;
 }
 
 void __tp_head_add_link(tp_sw *head, tp_link * n)

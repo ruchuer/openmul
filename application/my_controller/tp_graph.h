@@ -11,7 +11,7 @@
 
 //network adapter
 #ifndef IF_NAME
-#define IF_NAME "ens160"
+#define IF_NAME "192.168.10.214"
 #endif
  
 //ethernet address len
@@ -107,13 +107,6 @@ tp_sw * tp_find_sw(uint32_t key);
 tp_sw * tp_add_sw(uint32_t key);
 
 /**
- * add a switch port node to tp_graph
- * @sw: mul_switch the include the port information
- * @return: success added_topo_switch_port, fail NULL
- */
-tp_sw * tp_add_sw_port(mul_switch_t *sw);
-
-/**
  * add a link to a switch link_head(the link switch_switch or switch_host but need to store twice)
  * @head: topo_switch_node
  * @n: the struct of link pointer
@@ -159,14 +152,15 @@ int tp_delete_sw(uint32_t key);
 /**
  * Destroys and cleans up topo.
  */
-void tp_distory();
+void tp_distory(void);
 
 /**
  * add a port information in topo_switch
  * @head: topo_switch
- * @iter: the switch port list from mul_switch_t
+ * @port_no: port number
+ * @dl_hww_addr: the data links address
  */
-void __tp_sw_add_port(tp_sw *head, GSList * iter);
+void __tp_sw_add_port(tp_sw *head, uint32_t port_no, uint8_t dl_hw_addr[ETH_ADDR_LEN]);
 
 /**
  * delete a port from switch
