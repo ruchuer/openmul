@@ -20,7 +20,7 @@ uint64_t lldp_get_timeval(void)
  * src_addr:sw_port MAC address
  * srcID: sw_dpid
  */
-void lldp_create_packet(void *src_addr, uint64_t srcId, uint32_t srcPort, 
+void lldp_create_packet(void *src_addr, uint32_t srcId, uint32_t srcPort, 
                         lldp_pkt_t *buffer, uint8_t user_type)
 {
     //nearest bridge
@@ -33,7 +33,7 @@ void lldp_create_packet(void *src_addr, uint64_t srcId, uint32_t srcPort,
     
     //the switch information (sw_dpid)
     buffer->chassis_tlv_type = LLDP_CHASSIS_ID_TLV;
-    buffer->chassis_tlv_length = sizeof(uint64_t) + 1;
+    buffer->chassis_tlv_length = sizeof(uint32_t) + 1;
     buffer->chassis_tlv_subtype = LLDP_CHASSIS_ID_LOCALLY_ASSIGNED;
     buffer->chassis_tlv_id = htonll(srcId);
 
@@ -61,10 +61,13 @@ void lldp_create_packet(void *src_addr, uint64_t srcId, uint32_t srcPort,
 
 void lldp_measure_delay_ctos(uint64_t sw_dpid)
 {
-    uint8_t src_addr[OFP_ETH_ALEN] = {0x01,0x01,0x01,0x01,0x01,0x01};
+    uint8_t src_addr[OFP_ETH_ALEN] = {0x02, 0x42, 0xf7, 0x6d, 0x95, 0x69};
     lldp_pkt_t buffer;
-    lldp_create_packet(src_addr, sw_dpid, OF_NO_PORT, &buffer, USER_TLV_DATA_TYPE_CTOS);
-    lldp_send_packet(sw_dpid, &buffer, 0);
+    c_log_debug("start to make a lldp packet!");
+    lldp_create_packet(src_addr, tp_get_sw_glabol_id(sw_dpid), OF_NO_PORT, &buffer, USER_TLV_DATA_TYPE_CTOS);
+    c_log_debug("create a lldp packet success!");
+    lldp_send_packet(sw_dpid, &buffer, 1, 0);
+    c_log_debug("send a ctos lldp packet!!");
 }
 
 //process the lldp packet
@@ -76,7 +79,7 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
     tp_sw * sw1 = tp_find_sw(tp_get_sw_glabol_id(sw_dpid1));
     lldp_pkt_t * lldp = (lldp_pkt_t*)raw;
     uint64_t sw_dpid2 = ntohll(lldp->chassis_tlv_id);
-    tp_sw * sw2 = tp_find_sw(tp_get_sw_glabol_id(sw_dpid2));
+    tp_sw * sw2 = tp_find_sw(sw_dpid2);
     uint8_t ret = 0;
 
     now_timeval = lldp_get_timeval();
@@ -112,7 +115,7 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
     }
 }
 
-void lldp_send_packet(uint64_t sw_dpid, lldp_pkt_t *buffer, uint32_t outport)
+void lldp_send_packet(uint64_t sw_dpid, lldp_pkt_t *buffer, uint32_t inport, uint32_t outport)
 {
     struct of_pkt_out_params  parms;
     struct mul_act_mdata      mdata;
@@ -123,7 +126,7 @@ void lldp_send_packet(uint64_t sw_dpid, lldp_pkt_t *buffer, uint32_t outport)
     mul_app_act_set_ctors(&mdata, sw_dpid);
     mul_app_action_output(&mdata, outport);
     parms.buffer_id = -1;
-    parms.in_port = OF_NO_PORT;
+    parms.in_port = inport;
     parms.action_list = mdata.act_base;
     parms.action_len = mul_app_act_len(&mdata);
     parms.data_len = sizeof(lldp_pkt_t);
@@ -144,7 +147,7 @@ void lldp_flood(mul_switch_t *sw)
     {
         lldp_create_packet(port_list->dl_hw_addr, sw->dpid, port_list->port_no, &buffer,\
                            USER_TLV_DATA_TYPE_STOS);
-        lldp_send_packet(sw->dpid, &buffer, port_list->port_no);
+        lldp_send_packet(sw->dpid, &buffer, OF_NO_PORT, port_list->port_no);
         port_list = port_list->next;
     }    
 }

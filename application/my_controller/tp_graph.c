@@ -75,7 +75,7 @@ uint64_t tp_get_sw_delay(uint32_t key)
 tp_sw * tp_find_sw(uint32_t key)
 {
     tp_sw *s = NULL;
-    c_log_debug("sw %x tp_find_sw", key);
+    //c_log_debug("sw %x tp_find_sw", key);
     HASH_FIND(hh, tp_graph, &key, sizeof(uint32_t), s);
     return s;
 }
@@ -84,7 +84,7 @@ tp_sw * tp_add_sw(uint32_t key)
 {
     tp_sw *s = NULL;
 
-    if(tp_find_sw(key) == NULL)return NULL;
+    if(tp_find_sw(key))return NULL;
 
     s = malloc(sizeof(tp_sw));
     memset(s, 0, sizeof(tp_sw));
@@ -100,7 +100,10 @@ void __tp_sw_add_port(tp_sw *head, uint32_t port_no, uint8_t dl_hw_addr[ETH_ADDR
     tp_sw_port * tmp = malloc(sizeof(tp_sw_port));
     memset(tmp, 0, sizeof(tp_sw_port));
     tmp->port_no = port_no;
-    strncpy((char*)tmp->dl_hw_addr, (const char*)dl_hw_addr, ETH_ADDR_LEN);
+    if(dl_hw_addr)
+    {
+        strncpy((char*)tmp->dl_hw_addr, (const char*)dl_hw_addr, ETH_ADDR_LEN);
+    }
     tmp->next = s;
     if(s)s->pprev = &tmp->next;
     head->list_port = tmp;
@@ -157,7 +160,7 @@ int tp_add_link(uint32_t key1, uint32_t port1, uint32_t key2, uint32_t port2)
     tp_link *n2ton1;
 
     if(!n1 || !n2)return 0;
-    if(__tp_get_link_in_head(n1->list_link, n2->key) == NULL)return 0;
+    if(__tp_get_link_in_head(n1->list_link, n2->key))return 0;
     
     n1ton2 = malloc(sizeof(tp_link));
     n2ton1 = malloc(sizeof(tp_link));

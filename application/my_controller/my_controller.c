@@ -106,7 +106,7 @@ my_controller_sw_add(mul_switch_t *sw)
     c_log_debug("sw %x add to tp_graph", sw_glabol_key);
     //写入数据库，新加了一个交换机，且由该控制器控制
     lldp_measure_delay_ctos(sw->dpid);
-    c_log_debug("measure controller to sw %dx delay", sw_glabol_key);
+    c_log_debug("measure controller to sw %x delay", sw_glabol_key);
 }
 
 /**
@@ -119,6 +119,7 @@ my_controller_sw_add(mul_switch_t *sw)
 static void
 my_controller_sw_del(mul_switch_t *sw)
 {
+    c_log_debug("sw del %x delay", (uint64_t)(sw->dpid));
     tp_delete_sw(tp_get_sw_glabol_id(sw->dpid));
     tp_del_sw_glabol_id(sw->dpid);
     c_log_debug("switch dpid 0x%ldx left network", (uint64_t)(sw->dpid));
@@ -151,12 +152,15 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
 
     memset(&parms, 0, sizeof(parms));
 
+    type = ntohs(fl->dl_type);
+    c_log_info("my_controller app - DL TYPE %x", type);
+
     /* Check packet validity */
     if (is_zero_ether_addr(fl->dl_src) || 
         is_zero_ether_addr(fl->dl_dst) ||
         is_multicast_ether_addr(fl->dl_src) || 
         is_broadcast_ether_addr(fl->dl_src)) {
-        //c_log_err("%s: Invalid src/dst mac addr", FN);
+        c_log_err("%s: Invalid src/dst mac addr", FN);
         return;
     }
 
@@ -165,29 +169,16 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
     }
 
     /* check ether type. common-libs/mul-lib/include/packets.h 104 row*/
-    type = ntohs(fl->dl_type);
-    c_log_info("my_controller app - DL TYPE %dx", type);
     switch (type){
     case ETH_TYPE_LLDP:
         //LLDP 0x88cc
-        lldp_proc(sw, fl, inport, buffer_id, raw, pkt_len);
         c_log_info("LLDP packet-in from network");
+        lldp_proc(sw, fl, inport, buffer_id, raw, pkt_len);
+        c_log_debug("sw %x delay %llu us", sw->dpid, tp_find_sw(tp_get_sw_glabol_id(sw->dpid))->delay);
         break;
     case ETH_TYPE_IP:
         //IP 0x0800
         c_log_info("IP packet-in from network");
-        // mul_app_act_alloc(&mdata);
-        // mdata.only_acts = true;
-        // mul_app_act_set_ctors(&mdata, sw->dpid);
-        // mul_app_action_output(&mdata, OF_ALL_PORTS);
-        // parms.buffer_id = buffer_id;
-        // parms.in_port = inport;
-        // parms.action_list = mdata.act_base;
-        // parms.action_len = mul_app_act_len(&mdata);
-        // parms.data_len = pkt_len;
-        // parms.data = raw;
-        // mul_app_send_pkt_out(NULL, sw->dpid, &parms);
-        // mul_app_act_free(&mdata);
         tp_rt_ip(fl->ip.nw_src, fl->ip.nw_dst);
         break;
     case ETH_TYPE_ARP:
@@ -197,7 +188,7 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
         break;
     case ETH_TYPE_IPV6:
         //IPv6 0x86dd
-        //c_log_info("IPv6 packet-in from network");
+        c_log_info("IPv6 packet-in from network");
         break;
     default:
         c_log_debug("%s: ethertype 0x%hx not recognized ", FN, fl->dl_type);
@@ -248,7 +239,9 @@ my_controller_core_reconn(void)
 static void
 lldp_port_add_cb(mul_switch_t *sw,  mul_port_t *port)
 {
+    c_log_debug("sw start %x add a port %x, MAC %s", sw->dpid, port->port_no, port->hw_addr);
     __tp_sw_add_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no, port->hw_addr);
+    c_log_debug("sw end %x add a port %x", sw->dpid, port->port_no);
 }
 
 /**
@@ -259,7 +252,9 @@ lldp_port_add_cb(mul_switch_t *sw,  mul_port_t *port)
 static void
 lldp_port_del_cb(mul_switch_t *sw,  mul_port_t *port)
 {
+    c_log_debug("sw start %x del a port %x", sw->dpid, port->port_no);
     __tp_sw_del_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no);
+    c_log_debug("sw end %x del a port %x", sw->dpid, port->port_no);
 }
 
 /* Network event callbacks */

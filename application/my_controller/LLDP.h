@@ -99,7 +99,7 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
  * @user_type: lldp_type
  * @return: the corresponding tp_sw_port
  */
-void lldp_create_packet(void *src_addr, uint64_t srcId, uint32_t srcPort, 
+void lldp_create_packet(void *src_addr, uint32_t srcId, uint32_t srcPort, 
                         lldp_pkt_t *buffer, uint8_t user_type);
 
 /**
@@ -118,9 +118,10 @@ uint64_t lldp_get_timeval(void);
  * send the lldp packet to switch
  * @sw_dpid: the dst switch dpid
  * @buffer: lldp packet pointer
+ * @inport: lldp packet inport
  * @outport: lldp packet out port
  */
-void lldp_send_packet(uint64_t sw_dpid, lldp_pkt_t *buffer, uint32_t outport);
+void lldp_send_packet(uint64_t sw_dpid, lldp_pkt_t *buffer, uint32_t inport, uint32_t outport);
 
 /**
  * measure the delay between switch and this controller
