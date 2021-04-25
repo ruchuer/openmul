@@ -49,14 +49,12 @@ void rt_distory(rt_node * rt_set)
         HASH_DEL(rt_set, s);
         free(s);
     }
-
-    rt_set = NULL;
 }
 
 void rt_set_ip_flow_path(uint32_t src_ip, uint32_t dst_ip, rt_node * rt_visited_set)
 {
     rt_node *s ;
-    tp_sw * dst_node = tp_find_sw(arp_find_key(dst_ip)->sw_key, tp_graph);
+    tp_sw * dst_node = tp_find_sw(arp_find_key(dst_ip)->sw_key);
     //uint32_t src_port = arp_find_key(src_ip)->port_no;
     uint32_t outport = arp_find_key(dst_ip)->port_no;
     struct flow fl;
@@ -93,12 +91,12 @@ void rt_set_ip_flow_path(uint32_t src_ip, uint32_t dst_ip, rt_node * rt_visited_
 
 int tp_rt_ip(uint32_t nw_src, uint32_t nw_dst)
 {
-    tp_sw * src_node = tp_find_sw(arp_find_key(nw_src)->sw_key, tp_graph);
-    tp_sw * dst_node = tp_find_sw(arp_find_key(nw_dst)->sw_key, tp_graph);
+    tp_sw * src_node = tp_find_sw(arp_find_key(nw_src)->sw_key);
+    tp_sw * dst_node = tp_find_sw(arp_find_key(nw_dst)->sw_key);
     tp_sw * start_node = src_node;
     tp_link * adj_node;
     heap rt_minheap;
-    rt_node * rt_visited_set;
+    rt_node rt_visited_set;
     uint64_t * delay_get;
     uint64_t * sw_visiting_key;
     uint64_t delay_set = 0;
@@ -106,13 +104,13 @@ int tp_rt_ip(uint32_t nw_src, uint32_t nw_dst)
     if(!src_node && !dst_node) return 0;
 
     heap_create(&rt_minheap, 0, NULL);
-    rt_add_node(src_node->key, src_node, NULL, rt_visited_set);
+    rt_add_node(src_node->key, src_node, NULL, &rt_visited_set);
     heap_insert(&rt_minheap, (void*)&(src_node->key), (void*)&delay_set);
 
     while(heap_size(&rt_minheap))
     {
         heap_delmin(&rt_minheap, (void*)&sw_visiting_key, (void*)&delay_get);
-        start_node = tp_find_sw(*sw_visiting_key, tp_graph);
+        start_node = tp_find_sw(*sw_visiting_key);
         adj_node = start_node->list_link;//找到一个点开始遍历
         if(adj_node == NULL) continue;
         while(adj_node)//遍历邻接点
@@ -120,23 +118,23 @@ int tp_rt_ip(uint32_t nw_src, uint32_t nw_dst)
             if(adj_node->key == dst_node->key)
             {
                 //找到了，下发流表
-                rt_add_node(adj_node->key, start_node, adj_node, rt_visited_set);
-                rt_set_ip_flow_path(nw_src, nw_dst, rt_visited_set);
-                rt_distory(rt_visited_set);
+                rt_add_node(adj_node->key, start_node, adj_node, &rt_visited_set);
+                rt_set_ip_flow_path(nw_src, nw_dst, &rt_visited_set);
+                rt_distory(&rt_visited_set);
                 heap_destroy(&rt_minheap);
                 return 1;
             }
-            if(!rt_find_node(adj_node->key, rt_visited_set))//没有被遍历过
+            if(!rt_find_node(adj_node->key, &rt_visited_set))//没有被遍历过
             {
                 delay_set = *delay_get + adj_node->delay;
                 heap_insert(&rt_minheap, (void*)&adj_node->key, (void*)&delay_set);//添加要遍历的点
-                rt_add_node(adj_node->key, start_node, adj_node, rt_visited_set);//添加已经遍历的点
+                rt_add_node(adj_node->key, start_node, adj_node, &rt_visited_set);//添加已经遍历的点
             }
             adj_node = adj_node->next;
         }
     }
 
-    rt_distory(rt_visited_set);
+    rt_distory(&rt_visited_set);
     heap_destroy(&rt_minheap);
     return 0;
 }

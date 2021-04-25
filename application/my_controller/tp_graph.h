@@ -22,7 +22,7 @@
 //the link node
 typedef struct tp_link_t
 {
-    uint64_t key;//the link key
+    uint32_t key;//the link key
     uint64_t delay;//the link delay
     uint16_t all_bw;//all bandwidth
     uint16_t re_bw; //remain bandwidth
@@ -63,26 +63,23 @@ typedef struct tp_swdpid_glabolkey_t
 /**
  * add a sw_dpid to the glabol key table
  * @sw_dpid: switch dpid
- * @tb: glabol switch key table
  * @return: the corresponding glabolkey or 0
 */
-uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb);
+uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid);
 
 /**
  * use the key to find switch node from tb
  * @sw_dpid: switch dpid
- * @tb: glabol switch key table
  * @return: the corresponding glabolkey or 0
  */
-uint32_t tp_get_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb);
+uint32_t tp_get_sw_glabol_id(uint64_t sw_dpid);
 
 /**
  * delete the key node from glabol key table
  * @sw_dpid: switch dpid
- * @tb: glabol switch key table
  * @return: success 1, fail 0
  */
-int tp_del_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb);
+int tp_del_sw_glabol_id(uint64_t sw_dpid);
 
 /**
  * return local ip address
@@ -98,26 +95,23 @@ void tp_get_area_from_db(uint32_t ip_addr);
 /**
  * use the key to find switch node from tp_graph
  * @key: the node key(sw_dpid or host ip)
- * @tp_graph: topo_graph handler
  * @return: the corresponding tp_sw or NULL
  */
-tp_sw * tp_find_sw(uint64_t key, tp_sw * tp_graph);
+tp_sw * tp_find_sw(uint32_t key);
 
 /**
  * add a switch node to tp_graph
  * @key: the node key(sw_dpid or host ip)
- * @tp_graph: topo_graph handler
  * @return: success added_topo_switch, fail NULL
  */
-tp_sw * tp_add_sw(uint64_t key, tp_sw * tp_graph);
+tp_sw * tp_add_sw(uint32_t key);
 
 /**
  * add a switch port node to tp_graph
  * @sw: mul_switch the include the port information
- * @tp_graph: topo_graph handler
  * @return: success added_topo_switch_port, fail NULL
  */
-tp_sw * tp_add_sw_port(mul_switch_t *sw, tp_sw * tp_graph);
+tp_sw * tp_add_sw_port(mul_switch_t *sw);
 
 /**
  * add a link to a switch link_head(the link switch_switch or switch_host but need to store twice)
@@ -128,12 +122,11 @@ void __tp_head_add_link(tp_sw *head, tp_link * n);
 
 /**
  * store the link(switch_switch or host_switch)
- * @key: switch_dpid of host_ip
+ * @key: switch id
  * @port: link port
- * @tp_graph: topo_graph handler
  * @return: success 1, fail 0
  */
-int tp_add_link(uint64_t key1, uint32_t port1, uint64_t key2, uint32_t port2, tp_sw * tp_graph);
+int tp_add_link(uint32_t key1, uint32_t port1, uint32_t key2, uint32_t port2);
 
 /**
  * get a link from a switch link_head(correspond the __tp_head_add_link function)
@@ -141,7 +134,7 @@ int tp_add_link(uint64_t key1, uint32_t port1, uint64_t key2, uint32_t port2, tp
  * @key: node_key
  * @return: the link pointer
  */
-tp_link * __tp_get_link_in_head(tp_link *head, uint64_t key);
+tp_link * __tp_get_link_in_head(tp_link *head, uint32_t key);
 
 /**
  * delete a link in a switch link_head
@@ -152,23 +145,21 @@ void __tp_delete_link_in_head(tp_link *del_n);
 /**
  * delete a link in topo
  * @key: two key of link_node
- * @tp_graph: topo_graph handler
  * @return: success 1, fail 0
  */
-int tp_delete_link(uint64_t key1, uint64_t key2, tp_sw * tp_graph);
+int tp_delete_link(uint32_t key1, uint32_t key2);
 
 /**
  * delete a switch(host) in topo
  * @key: key of tp_node
- * @tp_graph: topo_graph handler
  * @return: success 1, fail 0
  */
-int tp_delete_sw(uint64_t key, tp_sw * tp_graph);
+int tp_delete_sw(uint32_t key);
 
 /**
  * Destroys and cleans up topo.
  */
-void tp_distory(tp_sw * tp_graph);
+void tp_distory();
 
 /**
  * add a port information in topo_switch
@@ -202,22 +193,21 @@ void __tp_sw_del_all_port(tp_sw *head);
  * set the delay between controller and switch
  * @key: topo_switch_dpid
  * @delay: unit(us)
- * @tp_graph: topo_graph handler
  * @return: success 1, fail 0
  */
-int tp_set_sw_delay(uint64_t key, uint64_t delay, tp_sw * tp_graph);
+int tp_set_sw_delay(uint32_t key, uint64_t delay);
 
-// int tp_set_link_delay(uint64_t key1, uint64_t key2, uint64_t delay, tp_sw * tp_graph);
-// int tp_set_link_all_bw(uint64_t key1, uint64_t key2, uint16_t all_bw, tp_sw * tp_graph);
-// int tp_set_link_re_bw(uint64_t key1, uint64_t key2, uint16_t re_bw, tp_sw * tp_graph);
+// int tp_set_link_delay(uint32_t key1, uint32_t key2, uint64_t delay);
+// int tp_set_link_all_bw(uint32_t key1, uint32_t key2, uint16_t all_bw;
+// int tp_set_link_re_bw(uint32_t key1, uint32_t key2, uint16_t re_bwh);
 // prams is dalay or all_bw or re_bw(the name of struct tp_link member), 
 // ret(return) is the result(uint16_t*)
 // equal the three function above
 #ifndef TP_SET_LINK
-#define TP_SET_LINK(key1,key2,prams,tp_graph,ret)\
+#define TP_SET_LINK(key1,key2,prams,ret)\
     tp_link * link_n1, *link_n2;\
-    tp_sw *n1 = tp_find_sw(key1, tp_graph);\
-    tp_sw *n2 = tp_find_sw(key2, tp_graph);\
+    tp_sw *n1 = tp_find_sw(key1);\
+    tp_sw *n2 = tp_find_sw(key2);\
     if(!n1 || !n2) ret = 0;\
     else\
     {\
@@ -232,21 +222,20 @@ int tp_set_sw_delay(uint64_t key, uint64_t delay, tp_sw * tp_graph);
 /**
  * get the delay between controller and switch
  * @key: topo_switch_dpid
- * @tp_graph: topo_graph handler
  * @return: delay(us)
  */
-uint64_t tp_get_sw_delay(uint64_t key, tp_sw * tp_graph);
+uint64_t tp_get_sw_delay(uint32_t key);
 
-// uint64_t tp_get_link_delay(uint64_t key1, uint64_t key2, tp_sw * tp_graph);
-// uint16_t tp_get_link_all_bw(uint64_t key1, uint64_t key2, tp_sw * tp_graph);
-// uint16_t tp_get_link_re_bw(uint64_t key1, uint64_t key2, tp_sw * tp_graph);
+// uint64_t tp_get_link_delay(uint32_t key1, uint32_t key2);
+// uint16_t tp_get_link_all_bw(uint32_t key1, uint32_t key2);
+// uint16_t tp_get_link_re_bw(uint32_t key1, uint32_t key2);
 // prams is dalay or all_bw or re_bw(the name of struct tp_link member), 
 // ret(return) is the result(uint64_t*)
 // equal the three function above
 #ifndef TP_GET_LINK
-#define TP_GET_LINK(key1,key2,prams,tp_graph,ret)\
+#define TP_GET_LINK(key1,key2,prams,ret)\
     tp_link * link_n;\
-    tp_sw *n = tp_find_sw(key1, tp_graph);\
+    tp_sw *n = tp_find_sw(key1);\
     if(!n) ret = 0;\
     else\
     {\

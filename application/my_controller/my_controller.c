@@ -94,19 +94,19 @@ static void
 my_controller_sw_add(mul_switch_t *sw)
 {
     uint32_t sw_glabol_key;
-    c_log_debug("switch dpid 0x%ldx joined network", (uint64_t)(sw->dpid));
+    c_log_debug("switch dpid 0x%llx joined network", (uint64_t)(sw->dpid));
 
     /* Add few default flows in this switch */
     my_controller_install_dfl_flows(sw->dpid);
 
-    sw_glabol_key = tp_set_sw_glabol_id(sw->dpid, key_table);
-    c_log_debug("sw_glabol_key: %dx", sw_glabol_key);
+    sw_glabol_key = tp_set_sw_glabol_id(sw->dpid);
+    c_log_debug("sw_glabol_key: %x", sw_glabol_key);
     //topo Add a sw node to the topo
-    tp_add_sw(sw_glabol_key, tp_graph);
-    c_log_debug("sw %dx add to tp_graph", sw_glabol_key);
+    tp_add_sw(sw_glabol_key);
+    c_log_debug("sw %x add to tp_graph", sw_glabol_key);
     //topo add the port information
-    tp_add_sw_port(sw, tp_graph);
-    c_log_debug("sw %dx store port", sw_glabol_key);
+    tp_add_sw_port(sw);
+    c_log_debug("sw %x store port", sw_glabol_key);
     //写入数据库，新加了一个交换机，且由该控制器控制
     lldp_measure_delay_ctos(sw->dpid);
     c_log_debug("measure controller to sw %dx delay", sw_glabol_key);
@@ -122,8 +122,8 @@ my_controller_sw_add(mul_switch_t *sw)
 static void
 my_controller_sw_del(mul_switch_t *sw)
 {
-    tp_delete_sw(tp_get_sw_glabol_id(sw->dpid, key_table), tp_graph);
-    tp_del_sw_glabol_id(sw->dpid, key_table);
+    tp_delete_sw(tp_get_sw_glabol_id(sw->dpid));
+    tp_del_sw_glabol_id(sw->dpid);
     c_log_debug("switch dpid 0x%ldx left network", (uint64_t)(sw->dpid));
 }
 
@@ -241,9 +241,6 @@ my_controller_core_reconn(void)
                         0,                    /* If any specific dpid filtering is requested */
                         NULL,                 /* List of specific dpids for filtering events */
                         &my_controller_app_cbs);      /* Event notifier call-backs */
-
-    tp_get_area_from_db(tp_get_local_ip());
-    c_log_debug("controller area: %dx", controller_area);
 }
 
 
@@ -298,6 +295,9 @@ my_controller_module_init(void *base_arg)
     struct timeval tv = { 1, 0 };
 
     c_log_debug("%s", FN);
+
+    tp_get_area_from_db(tp_get_local_ip());
+    c_log_debug("controller area: %x", controller_area);
 
     /* Fire up a timer to do any housekeeping work for this application */
     my_controller_timer = evtimer_new(base, my_controller_timer_event, NULL); 

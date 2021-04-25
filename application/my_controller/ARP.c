@@ -46,8 +46,8 @@ void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port)
 {
     arp_hash_table_t * tmp;
     arp_add_key(arp_req->ar_spa, arp_req->ar_sha);
-    tmp = arp_find_key(arp_req->ar_sha);
-    tmp->sw_key = tp_get_sw_glabol_id(sw_dpid, key_table);
+    tmp = arp_find_key(arp_req->ar_spa);
+    tmp->sw_key = tp_get_sw_glabol_id(sw_dpid);
     tmp->port_no = port;
 }
 

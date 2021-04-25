@@ -15,39 +15,41 @@ void tp_get_area_from_db(uint32_t ip_addr)
     controller_area = 0x01010000;
 }
 
-uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb)
+uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid)
 {
     static uint8_t sw_count = 0;
-    tp_swdpid_glabolkey *s = NULL;
+    tp_swdpid_glabolkey *s = NULL, *tmp;
     sw_count++;
 
-    if(tp_get_sw_glabol_id(sw_dpid, tb) == 0)return 0;
+    if(tp_get_sw_glabol_id(sw_dpid))return 0;
 
     s = malloc(sizeof(tp_swdpid_glabolkey));
     memset(s, 0, sizeof(tp_swdpid_glabolkey));
     s->key = sw_dpid;
-    s->sw_gid = controller_area + (sw_count << 8);
-    HASH_ADD(hh,tb,key,sizeof(uint64_t),s);
+    s->sw_gid = controller_area + ((sw_count|0x00000000) << 8);
+    HASH_ADD(hh,key_table,key,sizeof(uint64_t),s);
 
     return s->sw_gid;
 }
 
-uint32_t tp_get_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb)
+uint32_t tp_get_sw_glabol_id(uint64_t sw_dpid)
 {
     tp_swdpid_glabolkey *s = NULL;
-    HASH_FIND(hh, tb, &sw_dpid, sizeof(uint64_t), s);
+    tp_swdpid_glabolkey *tmp;
+    
+    HASH_FIND(hh, key_table, &sw_dpid, sizeof(uint64_t), s);
     if(s)return s->sw_gid;
     return 0;
 }
 
-int tp_del_sw_glabol_id(uint64_t sw_dpid, tp_swdpid_glabolkey * tb)
+int tp_del_sw_glabol_id(uint64_t sw_dpid)
 {
     tp_swdpid_glabolkey *s = NULL;
 
-    HASH_FIND(hh, tb, &sw_dpid, sizeof(uint64_t), s);
+    HASH_FIND(hh, key_table, &sw_dpid, sizeof(uint64_t), s);
     if(!s)return 0;
 
-    HASH_DEL(tb, s);
+    HASH_DEL(key_table, s);
     free(s);
 
     return 1;
@@ -72,38 +74,39 @@ uint32_t tp_get_local_ip(void)
     return ntohl(((struct sockaddr_in*)&(ifr.ifr_addr))->sin_addr.s_addr);
 }
 
-int tp_set_sw_delay(uint64_t key, uint64_t delay, tp_sw * tp_graph)
+int tp_set_sw_delay(uint32_t key, uint64_t delay)
 {
-    tp_sw *s = tp_find_sw(key, tp_graph);
+    tp_sw *s = tp_find_sw(key);
     if(!s)return 0;
     s->delay = delay;
     return 1;
 }
 
-uint64_t tp_get_sw_delay(uint64_t key, tp_sw * tp_graph)
+uint64_t tp_get_sw_delay(uint32_t key)
 {
-    tp_sw *s = tp_find_sw(key, tp_graph);
+    tp_sw *s = tp_find_sw(key);
     if(!s)return 0;
     return s->delay;
 }
 
-tp_sw * tp_find_sw(uint64_t key, tp_sw * tp_graph)
+tp_sw * tp_find_sw(uint32_t key)
 {
     tp_sw *s = NULL;
-    HASH_FIND(hh, tp_graph, &key, sizeof(uint64_t), s);
+    c_log_debug("sw %x tp_find_sw", key);
+    HASH_FIND(hh, tp_graph, &key, sizeof(uint32_t), s);
     return s;
 }
 
-tp_sw * tp_add_sw(uint64_t key, tp_sw * tp_graph)
+tp_sw * tp_add_sw(uint32_t key)
 {
     tp_sw *s = NULL;
 
-    if(tp_find_sw(key, tp_graph) == NULL)return NULL;
+    if(tp_find_sw(key) == NULL)return NULL;
 
     s = malloc(sizeof(tp_sw));
     memset(s, 0, sizeof(tp_sw));
     s->key = key;
-    HASH_ADD(hh,tp_graph,key,sizeof(uint64_t),s);
+    HASH_ADD(hh,tp_graph,key,sizeof(uint32_t),s);
 
     return s;
 }
@@ -155,9 +158,9 @@ void __tp_sw_del_all_port(tp_sw *head)
 }
 
 
-tp_sw * tp_add_sw_port(mul_switch_t *sw, tp_sw * tp_graph)
+tp_sw * tp_add_sw_port(mul_switch_t *sw)
 {
-    tp_sw * s = tp_find_sw(tp_get_sw_glabol_id(sw->dpid, key_table), tp_graph);
+    tp_sw * s = tp_find_sw(tp_get_sw_glabol_id(sw->dpid));
     GSList * iter;
     s->sw_dpid = sw->dpid;
     
@@ -165,6 +168,7 @@ tp_sw * tp_add_sw_port(mul_switch_t *sw, tp_sw * tp_graph)
     iter = sw->port_list;
     while(iter != NULL)
     {
+        c_log_debug("sw %x add a port", s->key);
         __tp_sw_add_port(s, iter);
         iter = iter->next;
     }
@@ -180,10 +184,10 @@ void __tp_head_add_link(tp_sw *head, tp_link * n)
     n->pprev = &head->list_link;
 }
 
-int tp_add_link(uint64_t key1, uint32_t port1, uint64_t key2, uint32_t port2, tp_sw * tp_graph)
+int tp_add_link(uint32_t key1, uint32_t port1, uint32_t key2, uint32_t port2)
 {
-    tp_sw *n1 = tp_find_sw(key1, tp_graph);
-    tp_sw *n2 = tp_find_sw(key2, tp_graph);
+    tp_sw *n1 = tp_find_sw(key1);
+    tp_sw *n2 = tp_find_sw(key2);
     tp_link *n1ton2;
     tp_link *n2ton1;
 
@@ -206,7 +210,7 @@ int tp_add_link(uint64_t key1, uint32_t port1, uint64_t key2, uint32_t port2, tp
     return 1;
 }
 
-tp_link* __tp_get_link_in_head(tp_link *head, uint64_t key)
+tp_link* __tp_get_link_in_head(tp_link *head, uint32_t key)
 {
     tp_link * ret = head;
     while(ret != NULL)
@@ -228,11 +232,11 @@ void __tp_delete_link_in_head(tp_link *del_n)
     free(del_n);
 }
 
-int tp_delete_link(uint64_t key1, uint64_t key2, tp_sw * tp_graph)
+int tp_delete_link(uint32_t key1, uint32_t key2)
 {
     tp_link * del_n1, *del_n2;
-    tp_sw *n1 = tp_find_sw(key1, tp_graph);
-    tp_sw *n2 = tp_find_sw(key2, tp_graph);
+    tp_sw *n1 = tp_find_sw(key1);
+    tp_sw *n2 = tp_find_sw(key2);
 
     if(n1 == NULL || n2 == NULL)return 0;
 
@@ -246,17 +250,17 @@ int tp_delete_link(uint64_t key1, uint64_t key2, tp_sw * tp_graph)
     return 1;
 }
 
-int tp_delete_sw(uint64_t key, tp_sw * tp_graph)
+int tp_delete_sw(uint32_t key)
 {
     tp_sw *s = NULL;
 
-    s = tp_find_sw(key, tp_graph);
+    s = tp_find_sw(key);
     if(!s)return 0;
 
-    tp_del_sw_glabol_id(s->sw_dpid, key_table);
+    tp_del_sw_glabol_id(s->sw_dpid);
     while(s->list_link != NULL)
     {
-        tp_delete_link(key, s->list_link->key, tp_graph);
+        tp_delete_link(key, s->list_link->key);
     }
     HASH_DEL(tp_graph, s);
     free(s);
@@ -264,7 +268,7 @@ int tp_delete_sw(uint64_t key, tp_sw * tp_graph)
     return 1;
 }
 
-void tp_distory(tp_sw * tp_graph)
+void tp_distory()
 {
     tp_sw * s, * tmp;
     tp_link * next_tmp1, * next_tmp2;
@@ -278,7 +282,7 @@ void tp_distory(tp_sw * tp_graph)
             free(next_tmp1);
             next_tmp1 = next_tmp2;
         }
-        tp_del_sw_glabol_id(s->sw_dpid, key_table);
+        tp_del_sw_glabol_id(s->sw_dpid);
         HASH_DEL(tp_graph, s);
         free(s);
     }
