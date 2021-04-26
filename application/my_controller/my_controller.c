@@ -45,6 +45,8 @@ my_controller_install_dfl_flows(uint64_t dpid)
 {
     struct flow fl;
     struct flow mask;
+    //controller mac(used to arp proxy)
+    uint8_t src_addr[OFP_ETH_ALEN] = {0x02, 0x42, 0xf7, 0x6d, 0x93, 0x67};
     //struct mul_act_mdata mdata; 
     //mul_act_mdata_t mdata;
 
@@ -80,6 +82,16 @@ my_controller_install_dfl_flows(uint64_t dpid)
     mul_app_send_flow_add(MY_CONTROLLER_APP_NAME, NULL, dpid, &fl, &mask,
                           MY_CONTROLLER_UNK_BUFFER_ID, NULL, 0, 0, 0,
                           C_FL_PRIO_LDFL, C_FL_ENT_LOCAL);
+
+    /*Prevent ARP storms*/
+    memset(&fl, 0, sizeof(fl));
+    of_mask_set_dc_all(&mask);
+    memcpy(fl.dl_src, src_addr, OFP_ETH_ALEN);
+    of_mask_set_dl_src(&mask); 
+    mul_app_send_flow_add(MY_CONTROLLER_APP_NAME, NULL, dpid, &fl, &mask,
+                          MY_CONTROLLER_UNK_BUFFER_ID, NULL, 0, 0, 0,
+                          C_FL_PRIO_FWD, C_FL_ENT_LOCAL);
+
 }
 
 
@@ -103,6 +115,7 @@ my_controller_sw_add(mul_switch_t *sw)
     c_log_debug("sw_glabol_key: %x", sw_glabol_key);
     //topo Add a sw node to the topo
     tp_add_sw(sw_glabol_key);
+    tp_find_sw(sw_glabol_key)->sw_dpid = sw->dpid;
     c_log_debug("sw %x add to tp_graph", sw_glabol_key);
     //写入数据库，新加了一个交换机，且由该控制器控制
     lldp_measure_delay_ctos(sw->dpid);
@@ -188,7 +201,7 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
         break;
     case ETH_TYPE_IPV6:
         //IPv6 0x86dd
-        c_log_info("IPv6 packet-in from network");
+        //c_log_info("IPv6 packet-in from network");
         break;
     default:
         c_log_debug("%s: ethertype 0x%hx not recognized ", FN, fl->dl_type);
@@ -239,7 +252,7 @@ my_controller_core_reconn(void)
 static void
 lldp_port_add_cb(mul_switch_t *sw,  mul_port_t *port)
 {
-    c_log_debug("sw start %x add a port %x, MAC %s", sw->dpid, port->port_no, port->hw_addr);
+    c_log_debug("sw start %x add a port %x, MAC %s, config %x, state %x, n_stale %x", sw->dpid, port->port_no, port->hw_addr, port->config, port->state, port->n_stale);
     __tp_sw_add_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no, port->hw_addr);
     c_log_debug("sw end %x add a port %x", sw->dpid, port->port_no);
 }

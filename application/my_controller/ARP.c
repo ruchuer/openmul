@@ -3,6 +3,8 @@
 
 extern tp_swdpid_glabolkey * key_table;
 arp_hash_table_t * arp_table = NULL;
+extern tp_sw * tp_graph;
+extern uint32_t controller_area;
 
 void arp_add_key(uint32_t key_ip, uint8_t dl_hw_addr[ETH_ADDR_LEN]) 
 {
@@ -59,6 +61,8 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
     struct of_pkt_out_params  parms;
     struct mul_act_mdata      mdata;
     arp_hash_table_t * s = NULL;
+    uint8_t src_addr[OFP_ETH_ALEN] = {0x02, 0x42, 0xf7, 0x6d, 0x93, 0x67};
+    tp_sw * sw_tmp1, * sw_tmp2;
 
     arp = (void *)(raw + sizeof(struct eth_header)  +
                    (fl->dl_vlan ? VLAN_HEADER_LEN : 0));
@@ -74,7 +78,6 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
     memset(&parms, 0, sizeof(parms));
     mul_app_act_alloc(&mdata);
     mdata.only_acts = true;
-    mul_app_act_set_ctors(&mdata, sw->dpid);
     if(htons(arp->ar_op) == 1){
         //arp request
         s = arp_find_key(arp->ar_tpa);
@@ -82,6 +85,7 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
         {
             //arp cache reply
             c_log_info("ARP Cache reply!");
+            mul_app_act_set_ctors(&mdata, sw->dpid);
             mul_app_action_output(&mdata, inport);
             parms.buffer_id = buffer_id;
             parms.in_port = OF_NO_PORT;
@@ -94,29 +98,42 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
         }else
         {
             //STP flood
-            c_log_info("ARP Stp Flood!");
-            mul_app_action_output(&mdata, OF_ALL_PORTS);
+            c_log_info("ARP Flood!");
+            mul_app_act_set_ctors(&mdata, sw->dpid);
+            mul_app_action_output(&mdata, OF_ALL_PORTS); 
             parms.buffer_id = buffer_id;
-            parms.in_port = inport;
+            parms.in_port =OF_NO_PORT;
             parms.action_list = mdata.act_base;
             parms.action_len = mul_app_act_len(&mdata);
             parms.data_len = pkt_len;
+            memcpy(arp->ar_sha, src_addr, OFP_ETH_ALEN);
             parms.data = raw;
-            mul_app_send_pkt_out(NULL, sw->dpid, &parms);
+            HASH_ITER(hh, tp_graph, sw_tmp1, sw_tmp2) 
+            {
+                if((sw_tmp1->key & 0xffff0000) == controller_area)
+                {
+                    mul_app_send_pkt_out(NULL, sw_tmp1->sw_dpid, &parms);
+                    c_log_debug("Send a arp req pkt to sw %x", sw_tmp1->sw_dpid);
+                }
+            }
             mul_app_act_free(&mdata);
         }
     }else
     {
         //arp reply route trans
         c_log_info("ARP host Reply!");
-        mul_app_action_output(&mdata, OF_ALL_PORTS);
+        s = arp_find_key(arp->ar_tpa);
+        memcpy(arp->ar_tha, s->dl_hw_addr, OFP_ETH_ALEN);
+        c_log_debug("src mac %x%x%x%x%x%x", arp->ar_sha[0],arp->ar_sha[1],arp->ar_sha[2],arp->ar_sha[3],arp->ar_sha[4],arp->ar_sha[5]);
+        mul_app_act_set_ctors(&mdata, tp_find_sw(s->sw_key)->sw_dpid);
+        mul_app_action_output(&mdata, s->port_no);
         parms.buffer_id = buffer_id;
-        parms.in_port = inport;
+        parms.in_port = OF_NO_PORT;
         parms.action_list = mdata.act_base;
         parms.action_len = mul_app_act_len(&mdata);
         parms.data_len = pkt_len;
         parms.data = raw;
-        mul_app_send_pkt_out(NULL, sw->dpid, &parms);
+        mul_app_send_pkt_out(NULL, tp_find_sw(s->sw_key)->sw_dpid, &parms);
         mul_app_act_free(&mdata);
     }
 }
