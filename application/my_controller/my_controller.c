@@ -103,20 +103,23 @@ static void
 my_controller_sw_add(mul_switch_t *sw)
 {
     uint32_t sw_glabol_key;
-    c_log_debug("switch dpid 0x%llx joined network", (uint64_t)(sw->dpid));
+    // c_log_debug("switch dpid 0x%llx joined network", (uint64_t)(sw->dpid));
 
     /* Add few default flows in this switch */
     my_controller_install_dfl_flows(sw->dpid);
-
+    // create glabol key
     sw_glabol_key = tp_set_sw_glabol_id(sw->dpid);
-    c_log_debug("sw_glabol_key: %x", sw_glabol_key);
+    // c_log_debug("sw_glabol_key: %x", sw_glabol_key);
     //topo Add a sw node to the topo
     tp_add_sw(sw_glabol_key);
     tp_find_sw(sw_glabol_key)->sw_dpid = sw->dpid;
-    c_log_debug("sw %x add to tp_graph", sw_glabol_key);
+    // c_log_debug("sw %x add to tp_graph", sw_glabol_key);
     //写入数据库，新加了一个交换机，且由该控制器控制
+
+    //measure the delay between controller and switch
+    c_log_debug("start measure the delay between sw%x and c%x", sw->dpid, controller_area);
     lldp_measure_delay_ctos(sw->dpid);
-    c_log_debug("measure controller to sw %x delay", sw_glabol_key);
+    // c_log_debug("measure controller to sw %x delay", sw_glabol_key);
 }
 
 /**
@@ -129,10 +132,10 @@ my_controller_sw_add(mul_switch_t *sw)
 static void
 my_controller_sw_del(mul_switch_t *sw)
 {
-    c_log_debug("sw del %x delay", (uint64_t)(sw->dpid));
+    c_log_debug("sw del %x", (uint64_t)(sw->dpid));
     tp_delete_sw(tp_get_sw_glabol_id(sw->dpid));
     tp_del_sw_glabol_id(sw->dpid);
-    c_log_debug("switch dpid 0x%ldx left network", (uint64_t)(sw->dpid));
+    c_log_debug("switch dpid 0x%x left network", (uint64_t)(sw->dpid));
 }
 
 /**
@@ -183,7 +186,7 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
         //LLDP 0x88cc
         c_log_info("LLDP packet-in from network");
         lldp_proc(sw, fl, inport, buffer_id, raw, pkt_len);
-        c_log_debug("sw %x delay %llu us", sw->dpid, tp_find_sw(tp_get_sw_glabol_id(sw->dpid))->delay);
+        //c_log_debug("sw %x delay %llu us", sw->dpid, tp_find_sw(tp_get_sw_glabol_id(sw->dpid))->delay);
         break;
     case ETH_TYPE_IP:
         //IP 0x0800

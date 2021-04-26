@@ -16,8 +16,10 @@ rt_node * rt_add_node(uint64_t key, tp_sw *prev, tp_link *node, rt_node * rt_set
 {
     rt_node *s = NULL;
 
+    c_log_debug("rt_find_node");
     if(rt_find_node(key, rt_set))return NULL;
 
+    c_log_debug("start add node to rt_set");
     s = malloc(sizeof(rt_node));
     memset(s, 0, sizeof(rt_node));
     s->key = key;
@@ -103,14 +105,20 @@ int tp_rt_ip(uint32_t nw_src, uint32_t nw_dst)
 
     if(!src_node && !dst_node) return 0;
 
+    c_log_debug("heap_create!");
     heap_create(&rt_minheap, 0, NULL);
+    c_log_debug("rt_set add src_node!");
     rt_add_node(src_node->key, src_node, NULL, &rt_visited_set);
+    c_log_debug("heap insert src_node!");
     heap_insert(&rt_minheap, (void*)&(src_node->key), (void*)&delay_set);
 
     while(heap_size(&rt_minheap))
     {
+        c_log_debug("get the min_delay node from heap");
         heap_delmin(&rt_minheap, (void*)&sw_visiting_key, (void*)&delay_get);
+        c_log_debug("get the sw node from tp_graph");
         start_node = tp_find_sw(*sw_visiting_key);
+        c_log_debug("start traverse the sw links");
         adj_node = start_node->list_link;//找到一个点开始遍历
         if(adj_node == NULL) continue;
         while(adj_node)//遍历邻接点
@@ -118,22 +126,30 @@ int tp_rt_ip(uint32_t nw_src, uint32_t nw_dst)
             if(adj_node->key == dst_node->key)
             {
                 //找到了，下发流表
+                c_log_debug("find the dst and than issue the flow table");
+                c_log_debug("add the dst sw to rt_visited_set");
                 rt_add_node(adj_node->key, start_node, adj_node, &rt_visited_set);
+                c_log_debug("issue the flow table");
                 rt_set_ip_flow_path(nw_src, nw_dst, &rt_visited_set);
+                c_log_debug("free the malloc and return 1");
                 rt_distory(&rt_visited_set);
                 heap_destroy(&rt_minheap);
                 return 1;
             }
             if(!rt_find_node(adj_node->key, &rt_visited_set))//没有被遍历过
             {
+                c_log_debug("calculate the sum of delay");
                 delay_set = *delay_get + adj_node->delay;
+                c_log_debug("add the adj sw to heap");
                 heap_insert(&rt_minheap, (void*)&adj_node->key, (void*)&delay_set);//添加要遍历的点
+                c_log_debug("add the adj sw to rt_visited_set");
                 rt_add_node(adj_node->key, start_node, adj_node, &rt_visited_set);//添加已经遍历的点
             }
             adj_node = adj_node->next;
         }
     }
 
+    c_log_debug("free the malloc and return 0");
     rt_distory(&rt_visited_set);
     heap_destroy(&rt_minheap);
     return 0;

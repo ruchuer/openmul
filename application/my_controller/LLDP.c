@@ -35,7 +35,8 @@ void lldp_create_packet(void *src_addr, uint32_t srcId, uint32_t srcPort,
     buffer->chassis_tlv_type = LLDP_CHASSIS_ID_TLV;
     buffer->chassis_tlv_length = sizeof(uint32_t) + 1;
     buffer->chassis_tlv_subtype = LLDP_CHASSIS_ID_LOCALLY_ASSIGNED;
-    buffer->chassis_tlv_id = htonll(srcId);
+    buffer->chassis_tlv_id = htonl(srcId);
+    // c_log_debug("srcId:%x", srcId);
 
     //the switch outport
     buffer->port_tlv_type = LLDP_PORT_ID_TLV;
@@ -63,11 +64,11 @@ void lldp_measure_delay_ctos(uint64_t sw_dpid)
 {
     uint8_t src_addr[OFP_ETH_ALEN] = {0x02, 0x42, 0xf7, 0x6d, 0x95, 0x69};
     lldp_pkt_t buffer;
-    c_log_debug("start to make a lldp packet!");
+    // c_log_debug("start to make a lldp packet!");
     lldp_create_packet(src_addr, tp_get_sw_glabol_id(sw_dpid), OF_NO_PORT, &buffer, USER_TLV_DATA_TYPE_CTOS);
-    c_log_debug("create a lldp packet success!");
+    // c_log_debug("create a lldp packet success!");
     lldp_send_packet(sw_dpid, &buffer, 1, 0);
-    c_log_debug("send a ctos lldp packet!!");
+    // c_log_debug("send a ctos lldp packet!!");
 }
 
 //process the lldp packet
@@ -75,31 +76,39 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
               uint8_t *raw, size_t pkt_len)
 {
     uint64_t now_timeval, delay, delay_tmp;
-    uint64_t sw_dpid1 = sw->dpid;
-    tp_sw * sw1 = tp_find_sw(tp_get_sw_glabol_id(sw_dpid1));
+    uint64_t sw1_key = sw->dpid;
+    tp_sw * sw1 = tp_find_sw(tp_get_sw_glabol_id(sw1_key));
     lldp_pkt_t * lldp = (lldp_pkt_t*)raw;
-    uint64_t sw_dpid2 = ntohll(lldp->chassis_tlv_id);
-    tp_sw * sw2 = tp_find_sw(sw_dpid2);
+    uint64_t sw2_key = ntohl(lldp->chassis_tlv_id);
+    tp_sw * sw2 = tp_find_sw(sw2_key);
     uint8_t ret = 0;
 
+    // c_log_debug("sw2_key:%x", sw2_key);
     now_timeval = lldp_get_timeval();
 
     switch (lldp->user_tlv_data_type)
     {
     case USER_TLV_DATA_TYPE_CTOS:
         sw1->delay = (now_timeval-ntohll(lldp->user_tlv_data_timeval))/2;
+        c_log_debug("lldp_ctos_pkt from s%x and delay: %u us", sw1->key, sw1->delay);
         //flood lldp 
         lldp_flood(sw);
         break;
     case USER_TLV_DATA_TYPE_STOS:
+        c_log_debug("lldp_stos_pkt between s%x and s%x", sw1->key, sw2_key);
         if(sw2)
         {//in the same area
             //add edge between the sw_node. return 0 if added them before
             tp_add_link(sw1->key, inport, sw2->key, lldp->port_tlv_id);
             delay_tmp = now_timeval-ntohll(lldp->user_tlv_data_timeval);
-            delay_tmp -= (tp_find_sw(sw1->key)->delay + tp_find_sw(sw2->key)->delay);
-            TP_GET_LINK(sw1->key, sw2->key, delay, ret);
+            c_log_debug("all delay: %u us, sw1_delay:%u us, sw2_delay:%u us", delay_tmp, sw1->delay, sw2->delay);
+            delay_tmp -= (sw1->delay + sw2->delay);
+            c_log_debug("link delay: %u us", delay_tmp);
+            TP_GET_LINK(sw1->key, sw2->key, delay, delay);
+            c_log_debug("link delay: %u us", delay);
             if(delay)delay = (delay + delay_tmp)/2;
+            else delay = delay_tmp;
+            c_log_debug("link delay: %u us", delay);
             //connect to the database if the link between area and area
             do{
                 TP_SET_LINK(sw1->key, sw2->key, delay, ret);
@@ -147,7 +156,7 @@ void lldp_flood(mul_switch_t *sw)
     //lldp_create_packet(port_infor.hw_addr, sw_srcdpid, port_infor.port_no, &buffer);
     while(port_list)
     {
-        lldp_create_packet(port_list->dl_hw_addr, sw->dpid, port_list->port_no, &buffer,\
+        lldp_create_packet(port_list->dl_hw_addr, tp_get_sw_glabol_id(sw->dpid), port_list->port_no, &buffer,\
                            USER_TLV_DATA_TYPE_STOS);
         lldp_send_packet(sw->dpid, &buffer, OF_NO_PORT, port_list->port_no);
         port_list = port_list->next;
