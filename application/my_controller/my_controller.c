@@ -75,6 +75,13 @@ my_controller_install_dfl_flows(uint64_t dpid)
     mul_app_send_flow_add(MY_CONTROLLER_APP_NAME, NULL, dpid, &fl, &mask,
                           MY_CONTROLLER_UNK_BUFFER_ID, NULL, 0, 0, 0,
                           C_FL_PRIO_DRP, C_FL_ENT_NOCACHE);
+    
+
+    /*Prevent ARP storms*/
+    memcpy(&fl.dl_src, src_addr, OFP_ETH_ALEN);
+    mul_app_send_flow_add(MY_CONTROLLER_APP_NAME, NULL, dpid, &fl, &mask,
+                          MY_CONTROLLER_UNK_BUFFER_ID, NULL, 0, 0, 0,
+                          C_FL_PRIO_DRP, C_FL_ENT_NOCACHE);
 
     /* Send any unknown flow to app */
     memset(&fl, 0, sizeof(fl));
@@ -82,16 +89,6 @@ my_controller_install_dfl_flows(uint64_t dpid)
     mul_app_send_flow_add(MY_CONTROLLER_APP_NAME, NULL, dpid, &fl, &mask,
                           MY_CONTROLLER_UNK_BUFFER_ID, NULL, 0, 0, 0,
                           C_FL_PRIO_LDFL, C_FL_ENT_LOCAL);
-
-    /*Prevent ARP storms*/
-    memset(&fl, 0, sizeof(fl));
-    of_mask_set_dc_all(&mask);
-    memcpy(fl.dl_src, src_addr, OFP_ETH_ALEN);
-    of_mask_set_dl_src(&mask); 
-    mul_app_send_flow_add(MY_CONTROLLER_APP_NAME, NULL, dpid, &fl, &mask,
-                          MY_CONTROLLER_UNK_BUFFER_ID, NULL, 0, 0, 0,
-                          C_FL_PRIO_FWD, C_FL_ENT_LOCAL);
-
 }
 
 
@@ -165,9 +162,6 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
 
     memset(&parms, 0, sizeof(parms));
 
-    type = ntohs(fl->dl_type);
-    c_log_info("my_controller app - DL TYPE %x", type);
-
     /* Check packet validity */
     if (is_zero_ether_addr(fl->dl_src) || 
         is_zero_ether_addr(fl->dl_dst) ||
@@ -182,6 +176,8 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
     }
 
     /* check ether type. common-libs/mul-lib/include/packets.h 104 row*/
+    type = ntohs(fl->dl_type);
+    //c_log_info("my_controller app - DL TYPE %x", type);
     switch (type){
     case ETH_TYPE_LLDP:
         //LLDP 0x88cc
@@ -252,9 +248,9 @@ my_controller_core_reconn(void)
 static void
 lldp_port_add_cb(mul_switch_t *sw,  mul_port_t *port)
 {
-    c_log_debug("sw start %x add a port %x, MAC %s, config %x, state %x, n_stale %x", sw->dpid, port->port_no, port->hw_addr, port->config, port->state, port->n_stale);
+    // c_log_debug("sw start %x add a port %x, MAC %s, config %x, state %x, n_stale %x", sw->dpid, port->port_no, port->hw_addr, port->config, port->state, port->n_stale);
     __tp_sw_add_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no, port->hw_addr);
-    c_log_debug("sw end %x add a port %x", sw->dpid, port->port_no);
+    // c_log_debug("sw end %x add a port %x", sw->dpid, port->port_no);
 }
 
 /**
@@ -265,9 +261,9 @@ lldp_port_add_cb(mul_switch_t *sw,  mul_port_t *port)
 static void
 lldp_port_del_cb(mul_switch_t *sw,  mul_port_t *port)
 {
-    c_log_debug("sw start %x del a port %x", sw->dpid, port->port_no);
+    // c_log_debug("sw start %x del a port %x", sw->dpid, port->port_no);
     __tp_sw_del_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no);
-    c_log_debug("sw end %x del a port %x", sw->dpid, port->port_no);
+    // c_log_debug("sw end %x del a port %x", sw->dpid, port->port_no);
 }
 
 /* Network event callbacks */

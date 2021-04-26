@@ -12,7 +12,9 @@ void arp_add_key(uint32_t key_ip, uint8_t dl_hw_addr[ETH_ADDR_LEN])
 
     s = malloc(sizeof(arp_hash_table_t));
     s->id = key_ip;
-    strncpy((char*)s->dl_hw_addr, (const char*)dl_hw_addr, ETH_ADDR_LEN);
+    memcpy(s->dl_hw_addr, dl_hw_addr, ETH_ADDR_LEN);
+    // c_log_debug("src s->dl_hw_addr learn mac %x%x%x%x%x%x", s->dl_hw_addr[0],s->dl_hw_addr[1],s->dl_hw_addr[2],s->dl_hw_addr[3],s->dl_hw_addr[4],s->dl_hw_addr[5]);
+    // c_log_debug("src dl_hw_addr learn mac %x%x%x%x%x%x", dl_hw_addr[0],dl_hw_addr[1],dl_hw_addr[2],dl_hw_addr[3],dl_hw_addr[4],dl_hw_addr[5]);
     HASH_ADD_INT(arp_table, id, s);  /* id: name of key field */
 }
 
@@ -47,10 +49,12 @@ void arp_distory(void)
 void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port)
 {
     arp_hash_table_t * tmp;
+    // c_log_debug("src learn mac %x%x%x%x%x%x", arp_req->ar_sha[0],arp_req->ar_sha[1],arp_req->ar_sha[2],arp_req->ar_sha[3],arp_req->ar_sha[4],arp_req->ar_sha[5]);
     arp_add_key(arp_req->ar_spa, arp_req->ar_sha);
     tmp = arp_find_key(arp_req->ar_spa);
     tmp->sw_key = tp_get_sw_glabol_id(sw_dpid);
     tmp->port_no = port;
+    // c_log_debug("src learn end mac %x%x%x%x%x%x", tmp->dl_hw_addr[0], tmp->dl_hw_addr[1], tmp->dl_hw_addr[2], tmp->dl_hw_addr[3], tmp->dl_hw_addr[4], tmp->dl_hw_addr[5]);
 }
 
 
@@ -58,12 +62,14 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
               uint8_t *raw, size_t pkt_len)
 {
     struct arp_eth_header     *arp;
+    struct eth_header         *eth;
     struct of_pkt_out_params  parms;
     struct mul_act_mdata      mdata;
     arp_hash_table_t * s = NULL;
     uint8_t src_addr[OFP_ETH_ALEN] = {0x02, 0x42, 0xf7, 0x6d, 0x93, 0x67};
     tp_sw * sw_tmp1, * sw_tmp2;
 
+    eth = (struct eth_header*)raw;
     arp = (void *)(raw + sizeof(struct eth_header)  +
                    (fl->dl_vlan ? VLAN_HEADER_LEN : 0));
 
@@ -84,7 +90,7 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
         if(s)
         {
             //arp cache reply
-            c_log_info("ARP Cache reply!");
+            // c_slog_info("ARP Cache reply!");
             mul_app_act_set_ctors(&mdata, sw->dpid);
             mul_app_action_output(&mdata, inport);
             parms.buffer_id = buffer_id;
@@ -98,7 +104,7 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
         }else
         {
             //STP flood
-            c_log_info("ARP Flood!");
+            // c_log_info("ARP Flood!");
             mul_app_act_set_ctors(&mdata, sw->dpid);
             mul_app_action_output(&mdata, OF_ALL_PORTS); 
             parms.buffer_id = buffer_id;
@@ -107,13 +113,14 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
             parms.action_len = mul_app_act_len(&mdata);
             parms.data_len = pkt_len;
             memcpy(arp->ar_sha, src_addr, OFP_ETH_ALEN);
+            memcpy(eth->eth_src, src_addr, OFP_ETH_ALEN);
             parms.data = raw;
             HASH_ITER(hh, tp_graph, sw_tmp1, sw_tmp2) 
             {
                 if((sw_tmp1->key & 0xffff0000) == controller_area)
                 {
                     mul_app_send_pkt_out(NULL, sw_tmp1->sw_dpid, &parms);
-                    c_log_debug("Send a arp req pkt to sw %x", sw_tmp1->sw_dpid);
+                    //c_log_debug("Send a arp req pkt to sw %x", sw_tmp1->sw_dpid);
                 }
             }
             mul_app_act_free(&mdata);
@@ -121,10 +128,11 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
     }else
     {
         //arp reply route trans
-        c_log_info("ARP host Reply!");
+        // c_log_info("ARP host Reply!");
         s = arp_find_key(arp->ar_tpa);
         memcpy(arp->ar_tha, s->dl_hw_addr, OFP_ETH_ALEN);
-        c_log_debug("src mac %x%x%x%x%x%x", arp->ar_sha[0],arp->ar_sha[1],arp->ar_sha[2],arp->ar_sha[3],arp->ar_sha[4],arp->ar_sha[5]);
+        // c_log_debug("dst mac %x%x%x%x%x%x", arp->ar_tha[0],arp->ar_tha[1],arp->ar_tha[2],arp->ar_tha[3],arp->ar_tha[4],arp->ar_tha[5]);
+        memcpy(eth->eth_dst, s->dl_hw_addr, OFP_ETH_ALEN);
         mul_app_act_set_ctors(&mdata, tp_find_sw(s->sw_key)->sw_dpid);
         mul_app_action_output(&mdata, s->port_no);
         parms.buffer_id = buffer_id;
