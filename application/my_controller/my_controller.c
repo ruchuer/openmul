@@ -24,6 +24,7 @@
 #include "tp_graph.h"
 #include "tp_route.h"
 #include "ARP.h"
+#include "db_wr.h"
 
 struct event *my_controller_timer;
 struct mul_app_client_cb my_controller_app_cbs;
@@ -34,7 +35,7 @@ extern tp_swdpid_glabolkey * key_table;
 extern uint32_t controller_area;
 
 /**
- * my_controller_install_dfl_flows -
+ * my_controller_intall_dfl_flows -
  * Installs default flows on a switch
  *
  * @dpid : Switch's datapath-id
@@ -103,6 +104,8 @@ static void
 my_controller_sw_add(mul_switch_t *sw)
 {
     uint32_t sw_glabol_key;
+    uint16_t cid;
+    uint8_t sid;
     // c_log_debug("switch dpid 0x%llx joined network", (uint64_t)(sw->dpid));
 
     /* Add few default flows in this switch */
@@ -113,11 +116,14 @@ my_controller_sw_add(mul_switch_t *sw)
     //topo Add a sw node to the topo
     tp_add_sw(sw_glabol_key);
     tp_find_sw(sw_glabol_key)->sw_dpid = sw->dpid;
-    // c_log_debug("sw %x add to tp_graph", sw_glabol_key);
+    c_log_debug("sw %x added", sw_glabol_key);
     //写入数据库，新加了一个交换机，且由该控制器控制
+    cid = (uint16_t)((controller_area & 0xffff0000) >> 16);
+    sid = (uint8_t)((sw_glabol_key & 0xffffff00) >> 8);
+    Set_Sw_Delay(cid, sid, 0);
 
     //measure the delay between controller and switch
-    c_log_debug("start measure the delay between sw%x and c%x", sw->dpid, controller_area);
+    c_log_debug("start measure the delay between sw%x and c%x", sw_glabol_key, controller_area);
     lldp_measure_delay_ctos(sw->dpid);
     // c_log_debug("measure controller to sw %x delay", sw_glabol_key);
 }
@@ -132,10 +138,12 @@ my_controller_sw_add(mul_switch_t *sw)
 static void
 my_controller_sw_del(mul_switch_t *sw)
 {
-    c_log_debug("sw del %x", tp_get_sw_glabol_id(sw->dpid));
+    c_log_debug("sw %x deleted", tp_get_sw_glabol_id(sw->dpid));
     tp_delete_sw(tp_get_sw_glabol_id(sw->dpid));
     tp_del_sw_glabol_id(sw->dpid);
-    c_log_debug("switch dpid 0x%x left network", (uint64_t)(sw->dpid));
+    // c_log_debug("switch %lx left network", (uint64_t)(sw->dpid));
+    // 从数据库中删除
+
 }
 
 /**
