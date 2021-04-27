@@ -132,7 +132,7 @@ my_controller_sw_add(mul_switch_t *sw)
 static void
 my_controller_sw_del(mul_switch_t *sw)
 {
-    c_log_debug("sw del %x", (uint64_t)(sw->dpid));
+    c_log_debug("sw del %x", tp_get_sw_glabol_id(sw->dpid));
     tp_delete_sw(tp_get_sw_glabol_id(sw->dpid));
     tp_del_sw_glabol_id(sw->dpid);
     c_log_debug("switch dpid 0x%x left network", (uint64_t)(sw->dpid));

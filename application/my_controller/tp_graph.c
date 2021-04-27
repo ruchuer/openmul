@@ -1,5 +1,5 @@
 #include "tp_graph.h"
-#include <glib.h>
+// #include <glib.h>
 #include <arpa/inet.h>
 
 tp_sw * tp_graph = NULL;

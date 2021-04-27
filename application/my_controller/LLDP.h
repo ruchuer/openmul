@@ -1,6 +1,7 @@
 #ifndef __MUL_MY_CONTROLLER_LLDP_H__
 #define __MUL_MY_CONTROLLER_LLDP_H__
 #include "mul_common.h"
+#include "tp_graph.h"
 
 #ifndef LLDP_DEFAULT_TTL
 #define LLDP_DEFAULT_TTL 20 
@@ -106,7 +107,7 @@ void lldp_create_packet(void *src_addr, uint32_t srcId, uint32_t srcPort,
  * send the lldp packet(measure the dalay between switch and switch) to adj_switch 
  * @sw: the switch need to measure the delay the links
  */
-void lldp_flood(mul_switch_t *sw);
+void lldp_flood(tp_sw *sw);
 
 /**
  * get the sys timestamp

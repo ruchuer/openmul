@@ -3,7 +3,7 @@
 
 #include "uthash.h"
 #include <stdlib.h>
-#include "mul_common.h"
+//#include "mul_common.h"
 
 #ifndef __USE_MISC
 #define __USE_MISC 1
@@ -19,11 +19,16 @@
 #define ETH_ADDR_LEN 6
 #endif
 
+#ifndef DELAY_MEASURE_TIMES
+#define DELAY_MEASURE_TIMES 5
+#endif
+
 //the link node
 typedef struct tp_link_t
 {
     uint32_t key;//the link key
     uint64_t delay;//the link delay
+    uint8_t delay_measure_times;//this switch measure dalay times
     uint16_t all_bw;//all bandwidth
     uint16_t re_bw; //remain bandwidth
     uint32_t port_h;//the head port
@@ -49,6 +54,7 @@ typedef struct tp_sw_t
     tp_link * list_link;//the switch link head
     tp_sw_port * list_port;//the switch port head
     uint64_t delay;//the delay between controller and switch
+    uint8_t delay_measure_times;//this switch measure dalay times
     UT_hash_handle hh;//hash handler
 }tp_sw;//switch hash table node
 
@@ -195,21 +201,19 @@ int tp_set_sw_delay(uint32_t key, uint64_t delay);
 // int tp_set_link_all_bw(uint32_t key1, uint32_t key2, uint16_t all_bw;
 // int tp_set_link_re_bw(uint32_t key1, uint32_t key2, uint16_t re_bwh);
 // prams is dalay or all_bw or re_bw(the name of struct tp_link member), 
-// ret(return) is the result(uint16_t*)
 // equal the three function above
+// have some limit! because of the variable declaration
 #ifndef TP_SET_LINK
-#define TP_SET_LINK(key1,key2,prams,ret)\
+#define TP_SET_LINK(key1,key2,prams,set)\
     tp_link * link_n1, *link_n2;\
     tp_sw *n1 = tp_find_sw(key1);\
     tp_sw *n2 = tp_find_sw(key2);\
-    if(!n1 || !n2) ret = 0;\
-    else\
+    if(n1 && n2)\
     {\
         link_n1 = __tp_get_link_in_head(n1->list_link, key2);\
         link_n2 = __tp_get_link_in_head(n2->list_link, key1);\
-        link_n1->prams = prams;\
-        link_n2->prams = prams;\
-        ret = 1;\
+        link_n1->prams = set;\
+        link_n2->prams = set;\
     }
 #endif
 
