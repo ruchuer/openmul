@@ -11,7 +11,7 @@
 
 //network adapter
 #ifndef IF_NAME
-#define IF_NAME "192.168.10.214"
+#define IF_NAME "192.168.10.215"
 #endif
  
 //ethernet address len

@@ -1,5 +1,6 @@
 #include "ARP.h"
 #include "tp_graph.h"
+#include "db_wr.h"
 
 extern tp_swdpid_glabolkey * key_table;
 arp_hash_table_t * arp_table = NULL;
@@ -55,6 +56,9 @@ void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port)
     tmp->sw_key = tp_get_sw_glabol_id(sw_dpid);
     tmp->port_no = port;
     // c_log_debug("src learn end mac %x%x%x%x%x%x", tmp->dl_hw_addr[0], tmp->dl_hw_addr[1], tmp->dl_hw_addr[2], tmp->dl_hw_addr[3], tmp->dl_hw_addr[4], tmp->dl_hw_addr[5]);
+
+    //write in redis database
+    Set_Pc_Sw_Port(arp_req->ar_spa, port);
 }
 
 
@@ -103,7 +107,7 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
             mul_app_act_free(&mdata);
         }else
         {
-            //STP flood
+            //STP flood c2s
             // c_log_info("ARP Flood!");
             mul_app_act_set_ctors(&mdata, sw->dpid);
             mul_app_action_output(&mdata, OF_ALL_PORTS); 
