@@ -16,6 +16,8 @@ INCLUDES = -I. -I$(top_srcdir)/mul -I$(top_srcdir)/common/ \
            -I$(top_srcdir)/common-libs/mul-lib/include/ \
            -I$(top_srcdir)/common-libs/util-linux/libuuid/src/
 
+LIBS = -lhiredis
+
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
 mulmy_controller_CFLAGS = -DMUL_APP_V2_MLAPI
@@ -24,7 +26,7 @@ if HAVE_MUL_VTY
 mulmy_controller_CFLAGS += -DMUL_APP_VTY
 endif
 
-mulmy_controller_SOURCES = my_controller.c tp_graph.c tp_route.c LLDP.c ARP.c heap.c\
+mulmy_controller_SOURCES = my_controller.c tp_graph.c tp_route.c LLDP.c ARP.c heap.c db_wr.c\
                            $(top_srcdir)/common/mul_app_main.c
 
 LD_FLAGS= @LDFLAGS@ 
@@ -51,4 +53,4 @@ endif
 
 mulmy_controller_LDFLAGS = $(LD_FLAGS) -lpthread -levent -lcrypt 
 
-noinst_HEADERS = my_controller.h uthash.h tp_graph.h tp_route.h LLDP.h ARP.h heap.h
+noinst_HEADERS = my_controller.h uthash.h tp_graph.h tp_route.h LLDP.h ARP.h heap.h db_wr.h

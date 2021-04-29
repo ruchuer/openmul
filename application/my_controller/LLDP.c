@@ -1,6 +1,7 @@
 #include "LLDP.h"
 #include "tp_graph.h"
 #include <sys/time.h>
+#include "db_wr.h"
 
 extern tp_sw * tp_graph;
 extern tp_swdpid_glabolkey * key_table;
@@ -83,6 +84,8 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
     tp_sw * sw2 = tp_find_sw(sw2_key);
     tp_link * link_n1;
     tp_link * link_n2;
+    uint16_t cid;
+    uint8_t sid;
 
     // c_log_debug("sw2_key:%x", sw2_key);
     now_timeval = lldp_get_timeval();
@@ -91,12 +94,18 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
     {
     case USER_TLV_DATA_TYPE_CTOS:
         sw1->delay += (now_timeval-ntohll(lldp->user_tlv_data_timeval))/2;
-        sw1->delay /= 2;
+        if(sw1->delay_measure_times != 0)
+            sw1->delay /= 2;
         sw1->delay_measure_times += 1;
-        c_log_debug("lldp_ctos_pkt from s%x and delay: %u us", sw1->sw_dpid, sw1->delay);
+        c_log_debug("lldp_ctos_pkt from s%x and %dth average delay: %lu us", \
+            sw1->key, sw1->delay_measure_times, sw1->delay);
+        // write in redis
+        cid = (uint16_t)((sw1->key & 0xffff0000) >> 16);
+        sid = (uint8_t)((sw1->key & 0xffffff00) >> 8);
+        Set_Sw_Delay(cid, sid, sw1->delay); 
 
         //flood lldp and measure the delay five times
-        if(sw1->delay_measure_times == DELAY_MEASURE_TIMES && sw1->delay_measure_times != 1)
+        if(sw1->delay_measure_times == DELAY_MEASURE_TIMES)
         {
             lldp_flood(sw1);
         }else
@@ -105,7 +114,7 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
         }
         break;
     case USER_TLV_DATA_TYPE_STOS:
-        c_log_debug("lldp_stos_pkt between s%x and s%x", sw1->sw_dpid, sw2->sw_dpid);
+        c_log_debug("lldp_stos_pkt between s%x and s%x", sw1->key, sw2->key);
         if(sw2)
         {//in the same area
             //add edge between the sw_node. return 0 if added them before
@@ -114,21 +123,32 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
             link_n2 = __tp_get_link_in_head(sw2->list_link, sw1_key);
             link_n1->delay_measure_times += 1;
             link_n2->delay_measure_times += 1;
-            
+
             if(link_n1->delay_measure_times == 1)break;
             else if(link_n1->delay_measure_times <= 4)lldp_flood(sw1);
+            // if(link_n1->delay_measure_times == 1)break;
+            // else if(link_n1->delay_measure_times <= DELAY_MEASURE_TIMES)lldp_flood(sw1);
+            if(link_n1->delay_measure_times < DELAY_MEASURE_TIMES)lldp_flood(sw1);
 
             delay_tmp = now_timeval-ntohll(lldp->user_tlv_data_timeval);
-            c_log_debug("all delay: %u us, sw1_delay:%u us, sw2_delay:%u us", delay_tmp, sw1->delay, sw2->delay);
+            c_log_debug("%dth all delay: %lu us, sw%x_delay:%lu us, sw%x_delay:%lu us", \
+                link_n1->delay_measure_times, delay_tmp, sw1->key, sw1->delay, sw2->key, sw2->delay);
             delay_tmp -= (sw1->delay + sw2->delay);
-            c_log_debug("link delay: %u us", delay_tmp);
-            c_log_debug("get last time link delay: %u us", link_n1->delay);
+            c_log_debug("%dth sw%x <-> sw%x link delay: %lu us", \
+                link_n1->delay_measure_times, sw1->key, sw2->key, delay_tmp);
+            // c_log_debug("get last time link delay: %llu us", link_n1->delay);
             if(link_n1->delay)delay = (link_n1->delay + delay_tmp)/2;
             else delay = delay_tmp;
+            
             c_log_debug("and now link delay: %u us", delay);
             c_log_debug("");
+            c_log_debug("average link delay: %lu us", delay);
             link_n1->delay = delay;
             link_n2->delay = delay;
+
+            // write in redis
+            Set_Link_Delay(link_n1->port_h, link_n1->port_n, delay);
+            Set_Link_Delay(link_n2->port_h, link_n2->port_n, delay);
         }
         else
         {

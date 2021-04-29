@@ -1,6 +1,7 @@
 #include "tp_graph.h"
 // #include <glib.h>
 #include <arpa/inet.h>
+#include "db_wr.h"
 
 tp_sw * tp_graph = NULL;
 tp_swdpid_glabolkey * key_table = NULL;
@@ -8,14 +9,18 @@ uint32_t controller_area = 0;
 
 void tp_get_area_from_db(uint32_t ip_addr)
 {
-    //some command send to Redis 
+    // some command send to Redis 
+    // uint16_t ctrl_id;
+    // ctrl_id = Get_Ctrl_Id(ip_addr);
+    // controller_area = (((uint32_t)ctrl_id) << 16) & 0xffff0000;
+
     controller_area = 0x01010000;
 }
 
 uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid)
 {
     static uint8_t sw_count = 0;
-    tp_swdpid_glabolkey *s = NULL, *tmp;
+    tp_swdpid_glabolkey *s = NULL;
     sw_count++;
 
     if(tp_get_sw_glabol_id(sw_dpid))return 0;
