@@ -252,7 +252,8 @@ static void
 lldp_port_add_cb(mul_switch_t *sw,  mul_port_t *port)
 {
     // c_log_debug("sw start %x add a port %x, MAC %s, config %x, state %x, n_stale %x", sw->dpid, port->port_no, port->hw_addr, port->config, port->state, port->n_stale);
-    __tp_sw_add_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no, port->hw_addr);
+    if(port->port_no != 0xfffe)
+        __tp_sw_add_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no, port->hw_addr);
     // c_log_debug("sw end %x add a port %x", sw->dpid, port->port_no);
 }
 
@@ -265,7 +266,8 @@ static void
 lldp_port_del_cb(mul_switch_t *sw,  mul_port_t *port)
 {
     // c_log_debug("sw start %x del a port %x", sw->dpid, port->port_no);
-    __tp_sw_del_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no);
+    if(port->port_no != 0xfffe)
+        __tp_sw_del_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), port->port_no);
     // c_log_debug("sw end %x del a port %x", sw->dpid, port->port_no);
 }
 

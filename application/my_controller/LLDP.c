@@ -116,7 +116,7 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
             link_n2->delay_measure_times += 1;
             
             if(link_n1->delay_measure_times == 1)break;
-            else if(link_n1->delay_measure_times <= DELAY_MEASURE_TIMES)lldp_flood(sw1);
+            else if(link_n1->delay_measure_times <= 4)lldp_flood(sw1);
 
             delay_tmp = now_timeval-ntohll(lldp->user_tlv_data_timeval);
             c_log_debug("all delay: %u us, sw1_delay:%u us, sw2_delay:%u us", delay_tmp, sw1->delay, sw2->delay);
@@ -126,13 +126,14 @@ void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buff
             if(link_n1->delay)delay = (link_n1->delay + delay_tmp)/2;
             else delay = delay_tmp;
             c_log_debug("and now link delay: %u us", delay);
+            c_log_debug("");
             link_n1->delay = delay;
             link_n2->delay = delay;
         }
         else
         {
             //LLDP from other area
-            
+
         }
         
         break;
