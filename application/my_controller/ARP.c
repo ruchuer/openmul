@@ -50,6 +50,7 @@ void arp_distory(void)
 void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port)
 {
     arp_hash_table_t * tmp;
+    uint32_t pc_sw_port;
     // c_log_debug("src learn mac %x%x%x%x%x%x", arp_req->ar_sha[0],arp_req->ar_sha[1],arp_req->ar_sha[2],arp_req->ar_sha[3],arp_req->ar_sha[4],arp_req->ar_sha[5]);
     arp_add_key(arp_req->ar_spa, arp_req->ar_sha);
     tmp = arp_find_key(arp_req->ar_spa);
@@ -58,7 +59,8 @@ void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port)
     // c_log_debug("src learn end mac %x%x%x%x%x%x", tmp->dl_hw_addr[0], tmp->dl_hw_addr[1], tmp->dl_hw_addr[2], tmp->dl_hw_addr[3], tmp->dl_hw_addr[4], tmp->dl_hw_addr[5]);
 
     //write in redis database
-    Set_Pc_Sw_Port(arp_req->ar_spa, port);
+    pc_sw_port = tmp->sw_key + (port & 0x000000ff);
+    Set_Pc_Sw_Port(arp_req->ar_spa, pc_sw_port);
 }
 
 
