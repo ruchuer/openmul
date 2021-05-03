@@ -11,6 +11,10 @@
         "if.h": "c",
         "array": "c",
         "string": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "db_wr.h": "c",
+        "redis_interface.h": "c",
+        "command.h": "c",
+        "privs.h": "c"
     }
 }

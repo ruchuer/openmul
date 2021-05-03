@@ -88,8 +88,7 @@ enum lldp_tlv_type{
  * @raw: Raw packet data pointer
  * @pkt_len: Packet length
  */
-void lldp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffer_id, \
-              uint8_t *raw, size_t pkt_len);
+void lldp_proc(mul_switch_t *sw, uint32_t inport, uint8_t *raw);
 
 /**
  * Generates lldp_packet with source switch id/port into specified buffer

@@ -24,7 +24,7 @@
 #include "tp_graph.h"
 #include "tp_route.h"
 #include "ARP.h"
-#include "db_wr.h"
+#include "redis_interface.h"
 
 struct event *my_controller_timer;
 struct mul_app_client_cb my_controller_app_cbs;
@@ -104,8 +104,8 @@ static void
 my_controller_sw_add(mul_switch_t *sw)
 {
     uint32_t sw_glabol_key;
-    uint16_t cid;
-    uint8_t sid;
+    // uint16_t cid;
+    // uint8_t sid;
     // c_log_debug("switch dpid 0x%llx joined network", (uint64_t)(sw->dpid));
 
     /* Add few default flows in this switch */
@@ -118,13 +118,14 @@ my_controller_sw_add(mul_switch_t *sw)
     tp_find_sw(sw_glabol_key)->sw_dpid = sw->dpid;
     c_log_debug("sw %x added", sw_glabol_key);
     //写入数据库，新加了一个交换机，且由该控制器控制
-    cid = (uint16_t)((controller_area & 0xffff0000) >> 16);
-    sid = (uint8_t)((sw_glabol_key & 0xffffff00) >> 8);
-    Set_Sw_Delay(cid, sid, 0);
+    // cid = (uint16_t)((controller_area & 0xffff0000) >> 16);
+    // sid = (uint8_t)((sw_glabol_key & 0xffffff00) >> 8);
+    // Set_Sw_Delay(cid, sid, 0);
 
     //measure the delay between controller and switch
     c_log_debug("start measure the delay between sw%x and c%x", sw_glabol_key, controller_area);
     lldp_measure_delay_ctos(sw->dpid);
+    
     // c_log_debug("measure controller to sw %x delay", sw_glabol_key);
 }
 
@@ -193,13 +194,13 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
     case ETH_TYPE_LLDP:
         //LLDP 0x88cc
         c_log_info("LLDP packet-in from network");
-        lldp_proc(sw, fl, inport, buffer_id, raw, pkt_len);
+        lldp_proc(sw, inport, raw);
         //c_log_debug("sw %x delay %llu us", sw->dpid, tp_find_sw(tp_get_sw_glabol_id(sw->dpid))->delay);
         break;
     case ETH_TYPE_IP:
         //IP 0x0800
         c_log_info("IP packet-in from network");
-        tp_rt_ip(fl->ip.nw_src, fl->ip.nw_dst);
+        rt_ip(fl->ip.nw_src, fl->ip.nw_dst, tp_get_sw_glabol_id(sw->dpid));
         break;
     case ETH_TYPE_ARP:
         //ARP 0x0806
@@ -309,7 +310,7 @@ my_controller_timer_event(evutil_socket_t fd UNUSED,
                   short event UNUSED,
                   void *arg UNUSED)
 {
-    struct timeval tv = { 1 , 0 }; /* Timer set to run every one second */
+    struct timeval tv = { 60 , 0 }; /* Timer set to run every one second */
 
     /* Any housekeeping activity */
 
@@ -333,6 +334,14 @@ my_controller_module_init(void *base_arg)
 
     tp_get_area_from_db(tp_get_local_ip());
     c_log_debug("controller area: %x", controller_area);
+    if(redis_connect())
+    {
+        c_log_debug("Connect to the server!");
+    }else
+    {
+        c_log_debug("Can't connect to the server!");
+    }
+    
 
     /* Fire up a timer to do any housekeeping work for this application */
     my_controller_timer = evtimer_new(base, my_controller_timer_event, NULL); 

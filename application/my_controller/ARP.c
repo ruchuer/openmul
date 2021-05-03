@@ -1,6 +1,8 @@
 #include "ARP.h"
 #include "tp_graph.h"
-#include "db_wr.h"
+#include "tp_route.h"
+#include "redis_interface.h"
+#include <string.h>
 
 extern tp_swdpid_glabolkey * key_table;
 arp_hash_table_t * arp_table = NULL;
@@ -11,6 +13,7 @@ void arp_add_key(uint32_t key_ip, uint8_t dl_hw_addr[ETH_ADDR_LEN])
 {
     arp_hash_table_t *s;
 
+    if(arp_find_key(key_ip))return;
     s = malloc(sizeof(arp_hash_table_t));
     s->id = key_ip;
     memcpy(s->dl_hw_addr, dl_hw_addr, ETH_ADDR_LEN);
@@ -50,7 +53,6 @@ void arp_distory(void)
 void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port)
 {
     arp_hash_table_t * tmp;
-    uint32_t pc_sw_port;
     // c_log_debug("src learn mac %x%x%x%x%x%x", arp_req->ar_sha[0],arp_req->ar_sha[1],arp_req->ar_sha[2],arp_req->ar_sha[3],arp_req->ar_sha[4],arp_req->ar_sha[5]);
     arp_add_key(arp_req->ar_spa, arp_req->ar_sha);
     tmp = arp_find_key(arp_req->ar_spa);
@@ -59,8 +61,11 @@ void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port)
     // c_log_debug("src learn end mac %x%x%x%x%x%x", tmp->dl_hw_addr[0], tmp->dl_hw_addr[1], tmp->dl_hw_addr[2], tmp->dl_hw_addr[3], tmp->dl_hw_addr[4], tmp->dl_hw_addr[5]);
 
     //write in redis database
-    pc_sw_port = tmp->sw_key + (port & 0x000000ff);
-    Set_Pc_Sw_Port(arp_req->ar_spa, pc_sw_port);
+    // c_log_debug("set port and sw_key");
+    redis_Set_Pc_Sw_Port(arp_req->ar_spa, tmp->sw_key, port);
+    // c_log_debug("set mac");
+    redis_Set_Pc_MAC(arp_req->ar_spa, arp_req->ar_sha);
+    // c_log_debug("set maced");
 }
 
 
@@ -71,32 +76,42 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
     struct eth_header         *eth;
     struct of_pkt_out_params  parms;
     struct mul_act_mdata      mdata;
-    arp_hash_table_t * s = NULL;
     uint8_t src_addr[OFP_ETH_ALEN] = {0x02, 0x42, 0xf7, 0x6d, 0x93, 0x67};
+    uint8_t src_addr_to_other[OFP_ETH_ALEN] = {0x02, 0x42, 0xf7, 0x6d, 0x11, 0x11}, other = 0;
     tp_sw * sw_tmp1, * sw_tmp2;
+    tp_sw_port * port_tmp;
+    uint8_t mac[6] = {'\0'};
+    uint32_t sw_key, port_no;
 
     eth = (struct eth_header*)raw;
     arp = (void *)(raw + sizeof(struct eth_header)  +
                    (fl->dl_vlan ? VLAN_HEADER_LEN : 0));
 
-    //c_log_info("my_controller app - ARP SRC IP KEY %d!", arp->ar_tpa);
-    s = arp_find_key(arp->ar_spa);
-    if(s)
+    // c_log_info("my_controller app - ARP SRC IP KEY %d!", arp->ar_tpa);
+    // s = arp_find_key(arp->ar_spa);
+    // if(s)
+    // {
+    //     arp_delete_key(arp->ar_spa);
+    // }
+    if(src_addr_to_other[0]==arp->ar_sha[0] && src_addr_to_other[1]==arp->ar_sha[1] && src_addr_to_other[2]==arp->ar_sha[2] && src_addr_to_other[3]==arp->ar_sha[3]\
+       && src_addr_to_other[4]==arp->ar_sha[4] && src_addr_to_other[5]==arp->ar_sha[5])
     {
-        arp_delete_key(arp->ar_spa);
+        other=1;
+        __tp_sw_find_port(tp_find_sw(tp_get_sw_glabol_id(sw->dpid)), inport)->type = 2;
     }
-    arp_learn(arp, sw->dpid, inport);
+    if(!other)arp_learn(arp, sw->dpid, inport);
 
     memset(&parms, 0, sizeof(parms));
     mul_app_act_alloc(&mdata);
     mdata.only_acts = true;
     if(htons(arp->ar_op) == 1){
         //arp request
-        s = arp_find_key(arp->ar_tpa);
-        if(s)
+        // s = arp_find_key(arp->ar_tpa);
+        // c_log_debug("1");
+        if(redis_Get_Pc_MAC(arp->ar_tpa, mac))
         {
             //arp cache reply
-            // c_slog_info("ARP Cache reply!");
+            // c_log_info("ARP Cache reply!");
             mul_app_act_set_ctors(&mdata, sw->dpid);
             mul_app_action_output(&mdata, inport);
             parms.buffer_id = buffer_id;
@@ -104,7 +119,7 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
             parms.action_list = mdata.act_base;
             parms.action_len = mul_app_act_len(&mdata);
             parms.data_len = sizeof(struct eth_header) + sizeof(struct arp_eth_header);
-            parms.data = get_proxy_arp_reply(arp, s->dl_hw_addr);
+            parms.data = get_proxy_arp_reply(arp, mac);
             mul_app_send_pkt_out(NULL, sw->dpid, &parms);
             mul_app_act_free(&mdata);
         }else
@@ -125,8 +140,39 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
             {
                 if((sw_tmp1->key & 0xffff0000) == controller_area)
                 {
-                    mul_app_send_pkt_out(NULL, sw_tmp1->sw_dpid, &parms);
-                    //c_log_debug("Send a arp req pkt to sw %x", sw_tmp1->sw_dpid);
+                    port_tmp = sw_tmp1->list_port;
+                    while(port_tmp)
+                    {
+                        if(port_tmp->type == 0)
+                        {
+                            mul_app_act_set_ctors(&mdata, sw->dpid);
+                            mul_app_action_output(&mdata, port_tmp->port_no); 
+                            parms.buffer_id = buffer_id;
+                            parms.in_port =OF_NO_PORT;
+                            parms.action_list = mdata.act_base;
+                            parms.action_len = mul_app_act_len(&mdata);
+                            parms.data_len = pkt_len;
+                            memcpy(arp->ar_sha, src_addr, OFP_ETH_ALEN);
+                            memcpy(eth->eth_src, src_addr, OFP_ETH_ALEN);
+                            parms.data = raw;
+                            mul_app_send_pkt_out(NULL, sw_tmp1->sw_dpid, &parms);
+                            //c_log_debug("Send a arp req pkt to sw %x", sw_tmp1->sw_dpid);
+                        }else if(port_tmp->type == 2 && !other)
+                        {
+                            mul_app_act_set_ctors(&mdata, sw->dpid);
+                            mul_app_action_output(&mdata, port_tmp->port_no); 
+                            parms.buffer_id = buffer_id;
+                            parms.in_port =OF_NO_PORT;
+                            parms.action_list = mdata.act_base;
+                            parms.action_len = mul_app_act_len(&mdata);
+                            parms.data_len = pkt_len;
+                            memcpy(arp->ar_sha, src_addr_to_other, OFP_ETH_ALEN);
+                            memcpy(eth->eth_src, src_addr_to_other, OFP_ETH_ALEN);
+                            parms.data = raw;
+                            mul_app_send_pkt_out(NULL, sw_tmp1->sw_dpid, &parms);
+                        }
+                        port_tmp = port_tmp->next;
+                    }
                 }
             }
             mul_app_act_free(&mdata);
@@ -135,20 +181,7 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
     {
         //arp reply route trans
         // c_log_info("ARP host Reply!");
-        s = arp_find_key(arp->ar_tpa);
-        memcpy(arp->ar_tha, s->dl_hw_addr, OFP_ETH_ALEN);
-        // c_log_debug("dst mac %x%x%x%x%x%x", arp->ar_tha[0],arp->ar_tha[1],arp->ar_tha[2],arp->ar_tha[3],arp->ar_tha[4],arp->ar_tha[5]);
-        memcpy(eth->eth_dst, s->dl_hw_addr, OFP_ETH_ALEN);
-        mul_app_act_set_ctors(&mdata, tp_find_sw(s->sw_key)->sw_dpid);
-        mul_app_action_output(&mdata, s->port_no);
-        parms.buffer_id = buffer_id;
-        parms.in_port = OF_NO_PORT;
-        parms.action_list = mdata.act_base;
-        parms.action_len = mul_app_act_len(&mdata);
-        parms.data_len = pkt_len;
-        parms.data = raw;
-        mul_app_send_pkt_out(NULL, tp_find_sw(s->sw_key)->sw_dpid, &parms);
-        mul_app_act_free(&mdata);
+        rt_ip(arp->ar_spa, arp->ar_tpa, tp_get_sw_glabol_id(sw->dpid));
     }
 }
 

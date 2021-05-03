@@ -20,7 +20,7 @@
 #endif
 
 #ifndef DELAY_MEASURE_TIMES
-#define DELAY_MEASURE_TIMES 5
+#define DELAY_MEASURE_TIMES 6
 #endif
 
 //the link node
@@ -42,6 +42,7 @@ typedef struct tp_sw_port_t
 {
     uint32_t port_no;//port number
     uint8_t dl_hw_addr[ETH_ADDR_LEN];//data links MAC address
+    uint8_t type;//0 connect to host, 1 connect to local switch, 2 connect to other area switch
     struct tp_sw_port_t ** pprev;//point to the precursor node's next
     struct tp_sw_port_t * next;//next port node
 }tp_sw_port;
@@ -205,15 +206,10 @@ int tp_set_sw_delay(uint32_t key, uint64_t delay);
 // have some limit! because of the variable declaration
 #ifndef TP_SET_LINK
 #define TP_SET_LINK(key1,key2,prams,set)\
-    tp_link * link_n1, *link_n2;\
-    tp_sw *n1 = tp_find_sw(key1);\
-    tp_sw *n2 = tp_find_sw(key2);\
-    if(n1 && n2)\
+    if(tp_find_sw(key1) && tp_find_sw(key2))\
     {\
-        link_n1 = __tp_get_link_in_head(n1->list_link, key2);\
-        link_n2 = __tp_get_link_in_head(n2->list_link, key1);\
-        link_n1->prams = set;\
-        link_n2->prams = set;\
+        __tp_get_link_in_head(tp_find_sw(key1)->list_link, key2)->prams = set;\
+        __tp_get_link_in_head(tp_find_sw(key2)->list_link, key1)->prams = set;\
     }
 #endif
 
@@ -232,13 +228,10 @@ uint64_t tp_get_sw_delay(uint32_t key);
 // equal the three function above
 #ifndef TP_GET_LINK
 #define TP_GET_LINK(key1,key2,prams,ret)\
-    tp_link * link_n;\
-    tp_sw *n = tp_find_sw(key1);\
-    if(!n) ret = 0;\
+    if(!tp_find_sw(key1)) ret = 0;\
     else\
     {\
-        link_n = __tp_get_link_in_head(n->list_link, key2);\
-        ret = link_n->prams;\
+        ret = __tp_get_link_in_head(tp_find_sw(key1)->list_link, key2)->prams;\
     }
 #endif
 

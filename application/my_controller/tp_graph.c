@@ -1,7 +1,7 @@
 #include "tp_graph.h"
 // #include <glib.h>
 #include <arpa/inet.h>
-#include "db_wr.h"
+#include "redis_interface.h"
 
 tp_sw * tp_graph = NULL;
 tp_swdpid_glabolkey * key_table = NULL;
@@ -241,7 +241,7 @@ int tp_delete_sw(uint32_t key)
     return 1;
 }
 
-void tp_distory()
+void tp_distory(void)
 {
     tp_sw * s, * tmp;
     tp_link * next_tmp1, * next_tmp2;
