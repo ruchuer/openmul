@@ -119,8 +119,6 @@ void lldp_proc(mul_switch_t *sw, uint32_t inport, uint8_t *raw)
             link_n2 = __tp_get_link_in_head(sw2->list_link, sw1_key);
             link_n1->delay_measure_times += 1;
             link_n2->delay_measure_times += 1;
-            __tp_sw_find_port(sw1->list_port, inport)->type = 1;
-            __tp_sw_find_port(sw2->list_port, ntohs(lldp->port_tlv_id))->type = 1;
 
             // if(link_n1->delay_measure_times == 1)break;
             // else if(link_n1->delay_measure_times <= DELAY_MEASURE_TIMES)lldp_flood(sw1);
@@ -153,7 +151,6 @@ void lldp_proc(mul_switch_t *sw, uint32_t inport, uint8_t *raw)
         {
             //LLDP from other area
             c_log_debug("Other area sw%x <-> sw%x",  sw1_key, sw2_key);
-            __tp_sw_find_port(sw1->list_port, inport)->type = 2;
             if(!redis_Get_Sw_Delay(sw2_key, &delay))delay = sw1->delay;
             // c_log_debug("1");
             if(redis_Get_Link_Delay(sw1_key, sw2_key, &delay_tmp))

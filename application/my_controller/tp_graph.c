@@ -5,16 +5,31 @@
 
 tp_sw * tp_graph = NULL;
 tp_swdpid_glabolkey * key_table = NULL;
-uint32_t controller_area = 0;
+uint32_t controller_area = 0x01010000;
+extern redisContext *context;
 
-void tp_get_area_from_db(uint32_t ip_addr)
+uint32_t tp_get_area_from_db(uint32_t ip_addr)
 {
     // some command send to Redis 
-    // uint16_t ctrl_id;
+    uint32_t ret = 0;
     // ctrl_id = Get_Ctrl_Id(ip_addr);
-    // controller_area = (((uint32_t)ctrl_id) << 16) & 0xffff0000;
+    redis_Get_Ctrl_Id(ip_addr, &ret);
+    return ret;
+}
 
-    controller_area = 0x01010000;
+int tp_set_area_to_db(uint32_t ip_addr, uint32_t cid)
+{
+    char cmd[CMD_MAX_LENGHT] = {0};
+	
+	/*check redis connection*/
+	if(!context)
+	{
+		printf("haven't connect to redis server");
+		return FAILURE;
+	}
+	// set the link information
+	snprintf(cmd, CMD_MAX_LENGHT, "hset ctrl %u %u", ip_addr, cid);
+    return exeRedisIntCmd(cmd);
 }
 
 uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid)
@@ -37,7 +52,7 @@ uint32_t tp_set_sw_glabol_id(uint64_t sw_dpid)
 uint32_t tp_get_sw_glabol_id(uint64_t sw_dpid)
 {
     tp_swdpid_glabolkey *s = NULL;
-    tp_swdpid_glabolkey *tmp;
+    // tp_swdpid_glabolkey *tmp;
     
     HASH_FIND(hh, key_table, &sw_dpid, sizeof(uint64_t), s);
     if(s)return s->sw_gid;
@@ -59,7 +74,7 @@ int tp_del_sw_glabol_id(uint64_t sw_dpid)
 
 uint32_t tp_get_local_ip(void)
 {
-    return inet_addr(IF_NAME);
+    return inet_addr(CONTROLLER_IP);
 }
 
 int tp_set_sw_delay(uint32_t key, uint64_t delay)

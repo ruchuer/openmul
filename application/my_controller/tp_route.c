@@ -186,6 +186,7 @@ rt_node* rt_ip_get_path(uint32_t sw_start, uint32_t sw_end)
     src_node = tp_find_sw(sw_start);
     dst_node = tp_find_sw(sw_end);
     start_node = src_node;
+    c_log_debug("src_node %x, dst_node %x!", src_node->key, dst_node->key);
     if(!src_node || !dst_node) return 0;
 
     c_log_debug("heap_create!");
@@ -280,11 +281,12 @@ int rt_ip(uint32_t nw_src, uint32_t nw_dst, uint32_t sw_key)
     {
         c_log_debug("have a route, seting");
         path_len = HASH_COUNT(rt_path);
-        c_log_debug("path len %u", path_len);
+        c_log_debug("path len %u path:", path_len);
         path = malloc(sizeof(uint32_t)*path_len);
         for(i=path_len-1; i>=0; i--)
         {
             HASH_FIND(hh, rt_path, &sw2_key, sizeof(uint32_t), rt_tmp);
+            c_log_debug("rt_tmp->key:%x", rt_tmp->key);
             path[i] = rt_tmp->key;
             sw2_key = rt_tmp->prev_key;
         }
@@ -293,20 +295,26 @@ int rt_ip(uint32_t nw_src, uint32_t nw_dst, uint32_t sw_key)
         c_log_debug("send to the sw");
         for(i = 0; i < path_len; i++)
         {
-            if((path[i]&0x11110000) == controller_area)
+            if((path[i]&0xffff0000) == controller_area)
             {
-                c_log_debug("seting sw %x", path[i]);
+                c_log_debug("seting sw %x, i=%d", path[i], i);
                 if(i == path_len -1)
                 {
                     redis_Get_Pc_Sw_Port(nw_dst, &sw1_key, &sw1_port);
-                    c_log_debug("issuing sw %x outport: %u", path[i], sw1_port);
+                    c_log_debug("end issuing sw %x outport: %u", path[i], sw1_port);
                     rt_ip_issue_flow(tp_find_sw(sw1_key)->sw_dpid, nw_src, nw_dst, sw1_port);
+                    free(path);
                     return 1;
                 }
                 redis_Get_Link_Port(path[i], &sw1_port, path[i+1], &sw2_port);
                 c_log_debug("issuing sw %x outport: %u", path[i], sw1_port);
                 rt_ip_issue_flow(tp_find_sw(path[i])->sw_dpid, nw_src, nw_dst, sw1_port);
-                if((path[i + 1]&0x11110000) != controller_area)return 1;
+                if((path[i + 1]&0xffff0000) != controller_area)
+                {
+                    c_log_debug("end issuing sw %x ", path[i]);
+                    free(path);
+                    return 1;
+                }
             }
         }
         free(path);
@@ -320,8 +328,9 @@ int rt_set_ip_flow_path_from_redis(uint32_t src_ip, uint32_t dst_ip)
 {
     uint32_t * path, path_len, outport1, outport2, tmp;
     int i;
+    c_log_debug("get path from redis");
     redis_Get_Route_Path(src_ip, dst_ip, &path, &path_len);
-    
+    c_log_debug("look for the sw that I controll");
     for (i = 0; i < path_len; i++)
     {
         if((path[i]&0x11110000) == controller_area)
@@ -330,14 +339,15 @@ int rt_set_ip_flow_path_from_redis(uint32_t src_ip, uint32_t dst_ip)
             {
                 redis_Get_Pc_Sw_Port(dst_ip, &tmp, &outport1);
                 rt_ip_issue_flow(tp_find_sw(tmp)->sw_dpid, src_ip, dst_ip, outport1);
+                free(path);
                 return 1;
             }
             redis_Get_Link_Port(path[i], &outport1, path[i+1], &outport2);
             rt_ip_issue_flow(tp_find_sw(path[i])->sw_dpid, src_ip, dst_ip, outport1);
-            if((path[i + 1]&0x11110000) != controller_area)return 1;
+            if((path[i + 1]&0x11110000) != controller_area){free(path);return 1;}
         }
     }
-    
+    free(path);
     return 0;
 }
 

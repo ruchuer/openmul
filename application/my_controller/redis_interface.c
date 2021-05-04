@@ -58,7 +58,7 @@ DB_RESULT exeRedisIntCmd(char *cmd)
     return SUCCESS;
 }
 
-DB_RESULT redis_Get_Ctrl_Id(uint32_t ip, uint16_t *cid)
+DB_RESULT redis_Get_Ctrl_Id(uint32_t ip, uint32_t *cid)
 {
 	char cmd[CMD_MAX_LENGHT] = {0};
 	redisReply *reply;
@@ -197,6 +197,7 @@ DB_RESULT redis_Set_Pc_Sw_Port(uint32_t ip, uint32_t sw, uint32_t port)
 {
 	char cmd[CMD_MAX_LENGHT] = {0};
 	int ret = 0;
+	redisReply *reply;
 
     /*check redis connection*/
 	if(!context)
@@ -204,6 +205,21 @@ DB_RESULT redis_Set_Pc_Sw_Port(uint32_t ip, uint32_t sw, uint32_t port)
 		printf("haven't connect to redis server");
 		return FAILURE;
 	}
+
+	snprintf(cmd, CMD_MAX_LENGHT, "hexists pc_sw %u", ip);
+    reply = (redisReply *)redisCommand(context, cmd);
+    if (NULL == reply)
+    {
+        printf("%d execute command:%s failure\n", __LINE__, cmd);
+        return FAILURE;
+    }
+	if(reply->integer == 1L)
+	{
+		freeReplyObject(reply);
+		return FAILURE;
+	}
+	freeReplyObject(reply);
+	memset(cmd, 0, CMD_MAX_LENGHT);
 
 	snprintf(cmd, CMD_MAX_LENGHT, "hset pc_sw %u %u", ip, sw);
 	ret &= exeRedisIntCmd(cmd);
@@ -256,7 +272,7 @@ DB_RESULT redis_Get_Pc_MAC(uint32_t ip, uint8_t *mac)
 	uint64_t maci = 0;
 	int i;
 
-	/*check redis connection*/
+    /*check redis connection*/
 	if(!context)
 	{
 		printf("haven't connect to redis server");
@@ -271,7 +287,8 @@ DB_RESULT redis_Get_Pc_MAC(uint32_t ip, uint8_t *mac)
         return FAILURE;
     }
 	if(!reply->str)return FAILURE;
-	maci = atoi(reply->str);
+	maci = atol(reply->str);
+	c_log_debug("maci:%lx", maci);
 	freeReplyObject(reply);
 
 	for(i=5; i>=0; i--)
@@ -342,7 +359,7 @@ DB_RESULT redis_Set_Route_Path(uint32_t nw_src, uint32_t nw_dst, uint32_t *path,
 {
 	char cmd[CMD_MAX_LENGHT] = {0};
 	redisReply *reply;
-	uint64_t redis_key = (((uint64_t)nw_src) << sizeof(uint32_t)) + nw_dst;
+	uint64_t redis_key = (((uint64_t)nw_src) << 32) + nw_dst;
 	int i;
 
 	/*check redis connection*/
@@ -379,7 +396,7 @@ DB_RESULT redis_Get_Route_Path(uint32_t nw_src, uint32_t nw_dst, uint32_t **path
 {
 	char cmd[CMD_MAX_LENGHT] = {0};
 	redisReply *reply;
-	uint64_t redis_key = (((uint64_t)nw_src) << sizeof(uint32_t)) + nw_dst;
+	uint64_t redis_key = (((uint64_t)nw_src) << 32) + nw_dst;
 	int i;
 
 	/*check redis connection*/
@@ -400,8 +417,10 @@ DB_RESULT redis_Get_Route_Path(uint32_t nw_src, uint32_t nw_dst, uint32_t **path
 	}
 	if(!reply->integer)return FAILURE;
 	*len = reply->integer;
+	// c_log_debug("path len: %u", *len);
 	freeReplyObject(reply);
 	memset(cmd, 0, CMD_MAX_LENGHT);
+	(*path) = malloc(*len * 4);
 
 	for(i = 0; i<*len; i++)
 	{
@@ -413,7 +432,8 @@ DB_RESULT redis_Get_Route_Path(uint32_t nw_src, uint32_t nw_dst, uint32_t **path
 			return FAILURE;
 		}
 		if(!reply->str)return FAILURE;
-		*path[i] = atoi(reply->str);
+		(*path)[i] = atoi(reply->str);
+		// c_log_debug("path: %u", *len);
 		freeReplyObject(reply);
 		memset(cmd, 0, CMD_MAX_LENGHT);
 	}
@@ -425,7 +445,7 @@ DB_RESULT redis_Is_Route_Path(uint32_t nw_src, uint32_t nw_dst)
 {
 	char cmd[CMD_MAX_LENGHT] = {0};
 	redisReply *reply;
-	uint64_t redis_key = (((uint64_t)nw_src) << sizeof(uint32_t)) + nw_dst;
+	uint64_t redis_key = (((uint64_t)nw_src) << 32) + nw_dst;
 
 	/*check redis connection*/
 	if(!context)

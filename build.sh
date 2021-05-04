@@ -96,21 +96,13 @@ function openmul {
                  tofrodos zlib1g-dev gawk libffi-dev gettext python python-all-dev \
                  swig libcurl4-gnutls-dev libglib2.0-dev libevent-dev libssl-dev autoconf libtool
 
-        $install python-pip
-        sudo -H pip install --upgrade pip
-
-        sudo -H pip install -r python_req.txt
-        $install --force-yes python-daemon
+        # $install --force-yes python-daemon
 
     elif [ "$DIST" = "Fedora" ]; then
         $install flex bison yumex expect \
                  tofrodos zlib-devel gawk libffi-devel gettext python python-devel \
                  swig curl-devel glib2-devel libevent-devel openssl-devel autoconf libtool
 
-        $install python-pip
-        sudo pip install --upgrade pip
-
-        sudo pip install -r python_req.txt
         $install python-daemon
 
     else

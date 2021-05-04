@@ -10,8 +10,8 @@
 #endif
 
 //network adapter
-#ifndef IF_NAME
-#define IF_NAME "192.168.10.215"
+#ifndef CONTROLLER_IP
+#define CONTROLLER_IP "192.168.10.214"
 #endif
  
 //ethernet address len
@@ -42,7 +42,6 @@ typedef struct tp_sw_port_t
 {
     uint32_t port_no;//port number
     uint8_t dl_hw_addr[ETH_ADDR_LEN];//data links MAC address
-    uint8_t type;//0 connect to host, 1 connect to local switch, 2 connect to other area switch
     struct tp_sw_port_t ** pprev;//point to the precursor node's next
     struct tp_sw_port_t * next;//next port node
 }tp_sw_port;
@@ -96,8 +95,17 @@ uint32_t tp_get_local_ip(void);
 /**
  * get controller area from the database, and assign to the global variable controller_area
  * @ip_addr: local ip address that use to identify this controller
+ * @return: controller id
 */
-void tp_get_area_from_db(uint32_t ip_addr);
+uint32_t tp_get_area_from_db(uint32_t ip_addr);
+
+/**
+ * set controller area to the database
+ * @ip_addr: local ip address that use to identify this controller
+ * @cid: controller id
+ * @return: success 1, fail 0
+*/
+int tp_set_area_to_db(uint32_t ip_addr, uint32_t cid);
 
 /**
  * use the key to find switch node from tp_graph

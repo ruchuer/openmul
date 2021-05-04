@@ -25,10 +25,12 @@
 #include "tp_route.h"
 #include "ARP.h"
 #include "redis_interface.h"
+#include "msg_udp.h"
+#include <pthread.h>
 
 struct event *my_controller_timer;
 struct mul_app_client_cb my_controller_app_cbs;
-
+pthread_t pid;
 extern arp_hash_table_t * arp_table;//arp hash table handler
 extern tp_sw * tp_graph;//topo hash handler
 extern tp_swdpid_glabolkey * key_table;
@@ -189,7 +191,7 @@ my_controller_packet_in(mul_switch_t *sw UNUSED,
 
     /* check ether type. common-libs/mul-lib/include/packets.h 104 row*/
     type = ntohs(fl->dl_type);
-    //c_log_info("my_controller app - DL TYPE %x", type);
+    // c_log_info("sw %x", tp_get_sw_glabol_id(sw->dpid));
     switch (type){
     case ETH_TYPE_LLDP:
         //LLDP 0x88cc
@@ -227,6 +229,8 @@ my_controller_core_closed(void)
     c_log_info("%s: ", FN);
 
     /* Nothing to do */
+    pthread_cancel(pid);
+	pthread_join(pid, NULL);
     return;
 }
 
@@ -310,10 +314,8 @@ my_controller_timer_event(evutil_socket_t fd UNUSED,
                   short event UNUSED,
                   void *arg UNUSED)
 {
-    struct timeval tv = { 60 , 0 }; /* Timer set to run every one second */
-
-    /* Any housekeeping activity */
-
+    struct timeval tv = { 1 , 0 }; /* Timer set to run every one second */
+    
     evtimer_add(my_controller_timer, &tv);
 }  
 
@@ -332,17 +334,27 @@ my_controller_module_init(void *base_arg)
 
     c_log_debug("%s", FN);
 
-    tp_get_area_from_db(tp_get_local_ip());
+    // tp_set_area_to_db(tp_get_local_ip(), controller_area);
     c_log_debug("controller area: %x", controller_area);
     if(redis_connect())
     {
+        tp_set_area_to_db(tp_get_local_ip(), controller_area);
         c_log_debug("Connect to the server!");
     }else
     {
         c_log_debug("Can't connect to the server!");
     }
     
-
+    if(msg_udp_init())
+    {
+        pthread_create(&pid, NULL, arp_listen, NULL);
+        c_log_debug("UDP listen start!");
+    }else
+    {
+        c_log_debug("Can't get the udp socket!");
+    }
+	
+	
     /* Fire up a timer to do any housekeeping work for this application */
     my_controller_timer = evtimer_new(base, my_controller_timer_event, NULL); 
     evtimer_add(my_controller_timer, &tv);

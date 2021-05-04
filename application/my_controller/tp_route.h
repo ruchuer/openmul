@@ -73,7 +73,7 @@ int rt_set_ip_flow_path_from_redis(uint32_t src_ip, uint32_t dst_ip);
  * @outport: the outport of flow
  * @return: success 1, fail 0
 */
-int rt_issue_flow(uint64_t sw_dpid, uint32_t src_ip, uint32_t dst_ip, uint32_t outport);
+int rt_ip_issue_flow(uint64_t sw_dpid, uint32_t src_ip, uint32_t dst_ip, uint32_t outport);
 
 /**
  * calculate the route path

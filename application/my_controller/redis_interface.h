@@ -32,7 +32,7 @@ DB_RESULT redis_disconnect(void);
  * @cid: pram out, controller id
  * @return: success 1, fail 0
  */
-DB_RESULT redis_Get_Ctrl_Id(uint32_t ip, uint16_t *cid);    
+DB_RESULT redis_Get_Ctrl_Id(uint32_t ip, uint32_t *cid);    
 
 /**
  * 获取链路时延

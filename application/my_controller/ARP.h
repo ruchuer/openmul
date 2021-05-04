@@ -67,4 +67,7 @@ void arp_proc(mul_switch_t *sw, struct flow *fl, uint32_t inport, uint32_t buffe
  * @port: the switch connect port
  */
 void arp_learn(struct arp_eth_header *arp_req, uint64_t sw_dpid, uint32_t port);
+
+void arp_send_to_other_ctrl(uint8_t *raw, size_t pkt_len);
+void* arp_listen(void *arg);
 #endif
