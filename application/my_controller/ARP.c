@@ -48,7 +48,6 @@ void* arp_listen(void *arg)
                 if((sw_tmp1->key & 0xffff0000) == controller_area)
                 {
                     mul_app_send_pkt_out(NULL, sw_tmp1->sw_dpid, &parms);
-                    //c_log_debug("Send a arp req pkt to sw %x", sw_tmp1->sw_dpid);
                 }
             }
             mul_app_act_free(&mdata);
